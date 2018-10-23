@@ -14,7 +14,8 @@ import { create as createLogger } from '../common/log'
 const log = createLogger('accounts')
 
 export interface AccountEntry {
-  plugin: PluginInstance,
+  //TODO: remove plugin requirement
+  plugin?: PluginInstance,
   info: AccountInfo
 }
 
@@ -135,44 +136,46 @@ export default class Accounts extends EventEmitter {
       throw err
     }
 
-    const Plugin = require(creds.plugin)
+    //TODO: move into account service
 
-    const api: any = {}
-    // Lazily create plugin utilities
-    Object.defineProperty(api, 'store', {
-      get: () => {
-        return this.store.getPluginStore(accountId)
-      }
-    })
-    Object.defineProperty(api, 'log', {
-      get: () => {
-        return createLogger(`${creds.plugin}[${accountId}]`)
-      }
-    })
-
-    const opts = Object.assign({}, creds.options)
-    // Provide old deprecated _store and _log properties
-    Object.defineProperty(opts, '_store', {
-      get: () => {
-        log.warn('DEPRECATED: plugin accessed deprecated _store property. accountId=%s', accountId)
-        return api.store
-      }
-    })
-    Object.defineProperty(opts, '_log', {
-      get: () => {
-        log.warn('DEPRECATED: plugin accessed deprecated _log property. accountId=%s', accountId)
-        return api.log
-      }
-    })
-
-    const plugin = compat(new Plugin(opts, api))
+    // const Plugin = require(creds.plugin)
+    //
+    // const api: any = {}
+    // // Lazily create plugin utilities
+    // Object.defineProperty(api, 'store', {
+    //   get: () => {
+    //     return this.store.getPluginStore(accountId)
+    //   }
+    // })
+    // Object.defineProperty(api, 'log', {
+    //   get: () => {
+    //     return createLogger(`${creds.plugin}[${accountId}]`)
+    //   }
+    // })
+    //
+    // const opts = Object.assign({}, creds.options)
+    // // Provide old deprecated _store and _log properties
+    // Object.defineProperty(opts, '_store', {
+    //   get: () => {
+    //     log.warn('DEPRECATED: plugin accessed deprecated _store property. accountId=%s', accountId)
+    //     return api.store
+    //   }
+    // })
+    // Object.defineProperty(opts, '_log', {
+    //   get: () => {
+    //     log.warn('DEPRECATED: plugin accessed deprecated _log property. accountId=%s', accountId)
+    //     return api.log
+    //   }
+    // })
+    //
+    // const plugin = compat(new Plugin(opts, api))
 
     this.accounts.set(accountId, {
-      info: creds,
-      plugin
+      info: creds
     })
 
-    this.emit('add', accountId, plugin)
+    // this.emit('add', accountId, plugin)
+    this.emit('add', accountId)
   }
 
   remove (accountId: string) {

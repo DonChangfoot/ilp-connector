@@ -67,6 +67,8 @@ export default class MiddlewareManager {
   private startupHandlers: Map<string, VoidHandler> = new Map()
   private outgoingDataHandlers: Map<string, DataHandler> = new Map()
   private outgoingMoneyHandlers: Map<string, MoneyHandler> = new Map()
+  private incomingDataHandlers: Map<string, DataHandler> = new Map()
+  private incomingMoneyHandlers: Map<string, MoneyHandler> = new Map()
 
   constructor (deps: reduct.Injector) {
     this.config = deps(Config)
@@ -114,7 +116,7 @@ export default class MiddlewareManager {
     for (const accountId of this.accounts.getAccountIds()) {
       const plugin = this.accounts.getPlugin(accountId)
 
-      await this.addPlugin(accountId, plugin)
+      await this.addPlugin(accountId)
     }
   }
 
@@ -152,7 +154,10 @@ export default class MiddlewareManager {
     // Generate outgoing middleware
     const submitData = async (data: Buffer) => {
       try {
-        return await plugin.sendData(data)
+        //TODO: need to return data that ought to be sent by plugin service
+        return data;
+        // return await plugin.sendData(data)
+
       } catch (e) {
         let err = e
         if (!err || typeof err !== 'object') {
@@ -168,7 +173,11 @@ export default class MiddlewareManager {
         throw err
       }
     }
-    const submitMoney = plugin.sendMoney.bind(plugin)
+
+    //TODO: change submitMoney to be handled through grpc
+    const submitMoney = async () => {}
+    // const submitMoney = plugin.sendMoney.bind(plugin)
+
     const startupHandler = this.createHandler(pipelines.startup, accountId, async () => { return })
     const outgoingDataHandler: DataHandler =
       this.createHandler(pipelines.outgoingData, accountId, submitData)
@@ -187,8 +196,11 @@ export default class MiddlewareManager {
     const incomingMoneyHandler: MoneyHandler =
       this.createHandler(pipelines.incomingMoney, accountId, handleMoney)
 
-    plugin.registerDataHandler(incomingDataHandler)
-    plugin.registerMoneyHandler(incomingMoneyHandler)
+    this.incomingDataHandlers.set(accountId, incomingDataHandler)
+    this.incomingMoneyHandlers.set(accountId, incomingMoneyHandler)
+
+    // plugin.registerDataHandler(incomingDataHandler)
+    // plugin.registerMoneyHandler(incomingMoneyHandler)
   }
 
   removePlugin (accountId: string, plugin: PluginInstance) {
@@ -218,6 +230,16 @@ export default class MiddlewareManager {
 
   getMiddleware (name: string): Middleware | undefined {
     return this.middlewares[name]
+  }
+
+  async handleIncomingData(accountId:string, data: any){
+    const handler = this.incomingDataHandlers.get(accountId)
+
+    if (!handler) {
+      throw new UnreachableError('There is no incoming data handler specified for accountId=' + accountId)
+    }
+
+    return await handler(data)
   }
 
   private createHandler<T,U> (pipeline: Pipeline<T,U>, accountId: string, next: (param: T) => Promise<U>): (param: T) => Promise<U> {

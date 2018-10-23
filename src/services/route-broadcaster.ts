@@ -81,28 +81,28 @@ export default class RouteBroadcaster {
       return
     }
 
-    const plugin = this.accounts.getPlugin(accountId)
-
-    const connectHandler = () => {
-      if (!plugin.isConnected()) {
-        // some plugins don't set `isConnected() = true` before emitting the
-        // connect event, setImmediate has a good chance of working.
-        log.error('(!!!) plugin emitted connect, but then returned false for isConnected, broken plugin. account=%s', accountId)
-        setImmediate(() => this.add(accountId))
-      } else {
-        this.add(accountId)
-      }
-    }
-    const disconnectHandler = () => {
-      this.remove(accountId)
-    }
-
-    plugin.on('connect', connectHandler)
-    plugin.on('disconnect', disconnectHandler)
+    // const plugin = this.accounts.getPlugin(accountId)
+    //
+    // const connectHandler = () => {
+    //   if (!plugin.isConnected()) {
+    //     // some plugins don't set `isConnected() = true` before emitting the
+    //     // connect event, setImmediate has a good chance of working.
+    //     log.error('(!!!) plugin emitted connect, but then returned false for isConnected, broken plugin. account=%s', accountId)
+    //     setImmediate(() => this.add(accountId))
+    //   } else {
+    //     this.add(accountId)
+    //   }
+    // }
+    // const disconnectHandler = () => {
+    //   this.remove(accountId)
+    // }
+    //
+    // plugin.on('connect', connectHandler)
+    // plugin.on('disconnect', disconnectHandler)
 
     this.untrackCallbacks.set(accountId, () => {
-      plugin.removeListener('connect', connectHandler)
-      plugin.removeListener('disconnect', disconnectHandler)
+      // plugin.removeListener('connect', connectHandler)
+      // plugin.removeListener('disconnect', disconnectHandler)
     })
 
     this.add(accountId)
@@ -111,11 +111,11 @@ export default class RouteBroadcaster {
   untrack (accountId: string) {
     this.remove(accountId)
 
-    const callback = this.untrackCallbacks.get(accountId)
-
-    if (callback) {
-      callback()
-    }
+    // const callback = this.untrackCallbacks.get(accountId)
+    //
+    // if (callback) {
+    //   callback()
+    // }
   }
 
   add (accountId: string) {
@@ -159,9 +159,9 @@ export default class RouteBroadcaster {
       return
     }
 
-    const plugin = this.accounts.getPlugin(accountId)
-
-    if (plugin.isConnected()) {
+    // const plugin = this.accounts.getPlugin(accountId)
+    //
+    // if (plugin.isConnected()) {
       log.trace('add peer. accountId=%s sendRoutes=%s receiveRoutes=%s', accountId, sendRoutes, receiveRoutes)
       const peer = new Peer({ deps: this.deps, accountId, sendRoutes, receiveRoutes })
       this.peers.set(accountId, peer)
@@ -170,7 +170,7 @@ export default class RouteBroadcaster {
         receiver.sendRouteControl()
       }
       this.reloadLocalRoutes()
-    }
+    // }
   }
 
   remove (accountId: string) {

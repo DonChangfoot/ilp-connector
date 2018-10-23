@@ -13,6 +13,7 @@ import MiddlewareManager from './services/middleware-manager'
 import AdminApi from './services/admin-api'
 import * as Prometheus from 'prom-client'
 import { PluginInstance } from './types/plugin'
+import PluginManager from "./services/plugin-manager";
 
 function listen (
   config: Config,
@@ -22,7 +23,8 @@ function listen (
   routeBuilder: RouteBuilder,
   routeBroadcaster: RouteBroadcaster,
   middlewareManager: MiddlewareManager,
-  adminApi: AdminApi
+  adminApi: AdminApi,
+  pluginManager: PluginManager
 ) {
   // Start a coroutine that connects to the backend and
   // subscribes to all the accounts in the background
@@ -36,29 +38,33 @@ function listen (
       process.exit(1)
     }
 
-    await middlewareManager.setup()
+    //Start gRPC
+    pluginManager.listen()
 
-    // If we have no configured ILP address, try to get one via ILDCP
-    await accounts.loadIlpAddress()
 
-    if (config.routeBroadcastEnabled) {
-      routeBroadcaster.start()
-    }
+    // await middlewareManager.setup()
+    //
+    // // If we have no configured ILP address, try to get one via ILDCP
+    // await accounts.loadIlpAddress()
+    //
+    // if (config.routeBroadcastEnabled) {
+    //   routeBroadcaster.start()
+    // }
 
     // Connect other plugins, give up after initialConnectTimeout
-    await new Promise((resolve, reject) => {
-      const connectTimeout = setTimeout(() => {
-        log.warn('one or more accounts failed to connect within the time limit, continuing anyway.')
-        resolve()
-      }, config.initialConnectTimeout)
-      accounts.connect({ timeout: config.initialConnectTimeout })
-        .then(() => {
-          clearTimeout(connectTimeout)
-          resolve()
-        }, reject)
-    })
+    // await new Promise((resolve, reject) => {
+    //   const connectTimeout = setTimeout(() => {
+    //     log.warn('one or more accounts failed to connect within the time limit, continuing anyway.')
+    //     resolve()
+    //   }, config.initialConnectTimeout)
+    //   accounts.connect({ timeout: config.initialConnectTimeout })
+    //     .then(() => {
+    //       clearTimeout(connectTimeout)
+    //       resolve()
+    //     }, reject)
+    // })
 
-    await middlewareManager.startup()
+    // await middlewareManager.startup()
 
     if (config.collectDefaultMetrics) {
       Prometheus.collectDefaultMetrics()
@@ -147,15 +153,17 @@ export default function createApp (opts?: object, container?: reduct.Injector) {
   const store = deps(Store)
   const middlewareManager = deps(MiddlewareManager)
   const adminApi = deps(AdminApi)
+  const pluginManager = deps(PluginManager)
 
-  const credentials = config.accounts
-  for (let id of Object.keys(credentials)) {
-    accounts.add(id, credentials[id])
-  }
+    //TODO: listen on gRPC port for account processes instead
+  // const credentials = config.accounts
+  // for (let id of Object.keys(credentials)) {
+  //   accounts.add(id, credentials[id])
+  // }
 
   return {
     config,
-    listen: partial(listen, config, accounts, backend, store, routeBuilder, routeBroadcaster, middlewareManager, adminApi),
+    listen: partial(listen, config, accounts, backend, store, routeBuilder, routeBroadcaster, middlewareManager, adminApi, pluginManager),
     addPlugin: partial(addPlugin, config, accounts, backend, routeBroadcaster, middlewareManager),
     removePlugin: partial(removePlugin, config, accounts, backend, routeBroadcaster, middlewareManager),
     getPlugin: partial(getPlugin, accounts),
