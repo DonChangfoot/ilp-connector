@@ -11,6 +11,7 @@ import {
   serializeCcpRouteUpdateRequest
 } from 'ilp-protocol-ccp'
 import { PluginInstance } from '../types/plugin'
+import PluginManager from "../services/plugin-manager";
 
 export interface BroadcastRoutesParams {
   accounts: Accounts,
@@ -25,7 +26,7 @@ export interface BroadcastRoutesParams {
 
 export interface CcpSenderOpts {
   accountId: string
-  plugin: PluginInstance
+  pluginManager: PluginManager
   forwardingRoutingTable: ForwardingRoutingTable
   getOwnAddress: () => string
   getAccountRelation: (accountId: string) => Relation
@@ -38,7 +39,7 @@ const MINIMUM_UPDATE_INTERVAL = 150
 const MAX_EPOCHS_PER_UPDATE = 50
 
 export default class CcpSender {
-  private plugin: PluginInstance
+  private pluginManager: PluginManager
   private forwardingRoutingTable: ForwardingRoutingTable
   private log: ConnectorLogger
   private accountId: string
@@ -58,14 +59,14 @@ export default class CcpSender {
 
   constructor ({
     accountId,
-    plugin,
+    pluginManager,
     forwardingRoutingTable,
     getOwnAddress,
     getAccountRelation,
     routeExpiry,
     routeBroadcastInterval
   }: CcpSenderOpts) {
-    this.plugin = plugin
+    this.pluginManager = pluginManager
     this.forwardingRoutingTable = forwardingRoutingTable
     this.log = createLogger(`ccp-sender[${accountId}]`)
     this.accountId = accountId
@@ -174,7 +175,7 @@ export default class CcpSender {
   private async sendSingleRouteUpdate () {
     this.lastUpdate = Date.now()
 
-    if (!this.plugin.isConnected()) {
+    if (!this.pluginManager.isConnected(this.accountId)) {
       this.log.debug('cannot send routes, plugin not connected (yet).')
       return
     }
@@ -266,7 +267,7 @@ export default class CcpSender {
 
     try {
       await Promise.race([
-        this.plugin.sendData(serializeCcpRouteUpdateRequest(routeUpdate)),
+        this.pluginManager.sendData(serializeCcpRouteUpdateRequest(routeUpdate), this.accountId),
         timerPromise
       ])
     } catch (err) {

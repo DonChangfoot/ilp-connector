@@ -25,6 +25,7 @@ import {
   CcpRouteControlRequest,
   CcpRouteUpdateRequest
 } from 'ilp-protocol-ccp'
+import PluginManager from "./plugin-manager";
 const { BadRequestError } = Errors
 
 export default class RouteBroadcaster {
@@ -41,12 +42,14 @@ export default class RouteBroadcaster {
   private localRoutes: Map<string, Route>
   private routingSecret: Buffer
   private untrackCallbacks: Map<string, () => void> = new Map()
+  // private pluginManager: PluginManager
 
   constructor (deps: reduct.Injector) {
     this.deps = deps
     this.localRoutingTable = deps(RoutingTable)
     this.forwardingRoutingTable = deps(ForwardingRoutingTable)
     this.accounts = deps(Accounts)
+    // this.pluginManager = deps(PluginManager)
     this.config = deps(Config)
 
     if (this.config.routingSecret) {
@@ -64,9 +67,9 @@ export default class RouteBroadcaster {
   start () {
     this.reloadLocalRoutes()
 
-    for (const accountId of this.accounts.getAccountIds()) {
-      this.track(accountId)
-    }
+    // for (const accountId of this.accounts.getAccountIds()) {
+    //   this.track(accountId)
+    // }
   }
 
   stop () {
@@ -75,50 +78,30 @@ export default class RouteBroadcaster {
     }
   }
 
-  track (accountId: string) {
+  track (accountId: string, pluginIsConnected: boolean) {
     if (this.untrackCallbacks.has(accountId)) {
       // Already tracked
       return
     }
 
-    // const plugin = this.accounts.getPlugin(accountId)
-    //
-    // const connectHandler = () => {
-    //   if (!plugin.isConnected()) {
-    //     // some plugins don't set `isConnected() = true` before emitting the
-    //     // connect event, setImmediate has a good chance of working.
-    //     log.error('(!!!) plugin emitted connect, but then returned false for isConnected, broken plugin. account=%s', accountId)
-    //     setImmediate(() => this.add(accountId))
-    //   } else {
-    //     this.add(accountId)
-    //   }
-    // }
-    // const disconnectHandler = () => {
-    //   this.remove(accountId)
-    // }
-    //
-    // plugin.on('connect', connectHandler)
-    // plugin.on('disconnect', disconnectHandler)
-
     this.untrackCallbacks.set(accountId, () => {
-      // plugin.removeListener('connect', connectHandler)
-      // plugin.removeListener('disconnect', disconnectHandler)
+
     })
 
-    this.add(accountId)
+    this.add(accountId, pluginIsConnected)
   }
 
   untrack (accountId: string) {
     this.remove(accountId)
 
-    // const callback = this.untrackCallbacks.get(accountId)
-    //
-    // if (callback) {
-    //   callback()
-    // }
+    const callback = this.untrackCallbacks.get(accountId)
+
+    if (callback) {
+      callback()
+    }
   }
 
-  add (accountId: string) {
+  add (accountId: string, pluginIsConnected: boolean) {
     const accountInfo = this.accounts.getInfo(accountId)
 
     let sendRoutes
@@ -159,9 +142,7 @@ export default class RouteBroadcaster {
       return
     }
 
-    // const plugin = this.accounts.getPlugin(accountId)
-    //
-    // if (plugin.isConnected()) {
+    if (pluginIsConnected) {
       log.trace('add peer. accountId=%s sendRoutes=%s receiveRoutes=%s', accountId, sendRoutes, receiveRoutes)
       const peer = new Peer({ deps: this.deps, accountId, sendRoutes, receiveRoutes })
       this.peers.set(accountId, peer)
@@ -170,7 +151,7 @@ export default class RouteBroadcaster {
         receiver.sendRouteControl()
       }
       this.reloadLocalRoutes()
-    // }
+    }
   }
 
   remove (accountId: string) {

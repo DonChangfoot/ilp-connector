@@ -10,6 +10,7 @@ import {
   serializeCcpRouteControlRequest
 } from 'ilp-protocol-ccp'
 import { PluginInstance } from '../types/plugin'
+import PluginManager from "../services/plugin-manager";
 
 export interface BroadcastRoutesParams {
   accounts: Accounts,
@@ -23,14 +24,14 @@ export interface BroadcastRoutesParams {
 }
 
 export interface CcpReceiverOpts {
-  plugin: PluginInstance
+  pluginManager: PluginManager
   accountId: string
 }
 
 const ROUTE_CONTROL_RETRY_INTERVAL = 30000
 
 export default class CcpReceiver {
-  private plugin: PluginInstance
+  private pluginManager: PluginManager
   private log: ConnectorLogger
   private accountId: string
   private routes: PrefixMap<IncomingRoute>
@@ -47,8 +48,8 @@ export default class CcpReceiver {
    */
   private epoch: number = 0
 
-  constructor ({ plugin, accountId }: CcpReceiverOpts) {
-    this.plugin = plugin
+  constructor ({ pluginManager, accountId }: CcpReceiverOpts) {
+    this.pluginManager = pluginManager
     this.log = createLogger(`ccp-receiver[${accountId}]`)
     this.accountId = accountId
     this.routes = new PrefixMap()
@@ -153,7 +154,7 @@ export default class CcpReceiver {
   }
 
   sendRouteControl = () => {
-    if (!this.plugin.isConnected()) {
+    if (!this.pluginManager.isConnected(this.accountId)) {
       this.log.debug('cannot send route control message, plugin not connected (yet).')
       return
     }
@@ -165,7 +166,7 @@ export default class CcpReceiver {
       features: []
     }
 
-    this.plugin.sendData(serializeCcpRouteControlRequest(routeControl))
+    this.pluginManager.sendData(serializeCcpRouteControlRequest(routeControl), this.accountId)
       .then(data => {
         if (data[0] === Type.TYPE_ILP_FULFILL) {
           this.log.trace('successfully sent route control message.')

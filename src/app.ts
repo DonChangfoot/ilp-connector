@@ -64,7 +64,7 @@ function listen (
     //     }, reject)
     // })
 
-    // await middlewareManager.startup()
+    await middlewareManager.startup()
 
     if (config.collectDefaultMetrics) {
       Prometheus.collectDefaultMetrics()
@@ -84,12 +84,12 @@ async function addPlugin (
   id: string,
   options: any
 ) {
-  accounts.add(id, options)
-  const plugin = accounts.getPlugin(id)
-  await middlewareManager.addPlugin(id, plugin)
-
-  await plugin.connect({ timeout: Infinity })
-  routeBroadcaster.track(id)
+  // accounts.add(id, options)
+  // const plugin = accounts.getPlugin(id)
+  // await middlewareManager.addPlugin(id, plugin)
+  //
+  // await plugin.connect({ timeout: Infinity })
+  // routeBroadcaster.track(id)
 }
 
 async function removePlugin (
@@ -101,11 +101,11 @@ async function removePlugin (
 
   id: string
 ) {
-  const plugin = accounts.getPlugin(id)
-  middlewareManager.removePlugin(id, plugin)
-  await plugin.disconnect()
-  routeBroadcaster.untrack(id)
-  accounts.remove(id)
+  // const plugin = accounts.getPlugin(id)
+  // middlewareManager.removePlugin(id, plugin)
+  // await plugin.disconnect()
+  // routeBroadcaster.untrack(id)
+  // accounts.remove(id)
 }
 
 function getPlugin (
@@ -113,7 +113,7 @@ function getPlugin (
 
   id: string
 ) {
-  return accounts.getPlugin(id)
+  return //accounts.getPlugin(id)
 }
 
 function shutdown (

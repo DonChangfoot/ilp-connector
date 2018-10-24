@@ -6,12 +6,17 @@ service Account {
 
   rpc AddAccount (NewAccountRequest) returns (NewAccountResponse) {}
 
+  rpc RemoveAccount(ConnectionRequest) returns (ConnectionResponse) {}
+
   rpc HandleData (HandleDataRequest) returns (HandleDataResponse) {}
 
   rpc TrackConnection (ConnectionRequest) returns (ConnectionResponse) {}
 
   rpc UntrackConnection (ConnectionRequest) returns (ConnectionResponse) {}
 
+  rpc HandleConnectionChange (ConnectionChangeRequest) returns (ConnectionResponse) {}
+
+  rpc RegisterDataStream (stream HandleDataRequest) returns (stream HandleDataResponse) {}
 }
 
 message AccountInfo {
@@ -33,6 +38,7 @@ message AccountOptions {
 
 message AccountOptionsInfo {
     string prefix = 1;
+    string grpcAddress = 2;
 }
 
 message NewAccountRequest {
@@ -48,6 +54,7 @@ message NewAccountResponse {
 message HandleDataRequest {
     string accountId = 1;
     bytes buffer = 2;
+    string type = 3;
 }
 
 message HandleDataResponse{
@@ -61,4 +68,9 @@ message ConnectionRequest{
 
 message ConnectionResponse{
 
+}
+
+message ConnectionChangeRequest{
+    string accountId = 1;
+    bool isConnected = 2;
 }

@@ -38,7 +38,8 @@ const newAccountData = {
         plugin: 'ilp-plugin-mirror',
         options: {
             info: {
-                prefix: 'test.quickstart.dirk'
+                prefix: 'test.quickstart.dirk',
+                grpcAddress: '0.0.0.0:50052',
             },
             account: 'test.quickstart.dirk.connector',
             balance: '0'
@@ -46,10 +47,18 @@ const newAccountData = {
     },
 };
 
-function runHandleData() {
+let stream = client.registerDataStream()
+
+stream.on('data',function(data){
+
+    console.log("got data from connector", data)
+
+})
+
+async function runHandleData() {
     const data = Ildcp.serializeIldcpRequest()
 
-    return new Promise(function(resolve, reject){
+    return await new Promise(function(resolve, reject){
 
         client.handleData({accountId: newAccountData.id, buffer: data}, function(err, response) {
 
@@ -64,52 +73,90 @@ function runHandleData() {
 
 }
 
-async function runTest() {
+function runDataHandleTest(callback) {
 
-    return runHandleData().then(buffer => console.log("buffer is", buffer)).catch(error => console.log("hello"));
+    try{
+        let test = runHandleData()
+        callback(null, "buffer is" + test)
+    }
+    catch(e){
+        callback(null, "failed to handle data")
+    }
 
 }
 
-async function runAddAccount() {
+function runAddAccount(callback) {
 
-    return await client.addAccount(newAccountData, function (err, response) {
+    client.addAccount(newAccountData, function (err, response) {
 
-        if(err) console.log("I did not get added to connector's accounts")
+        if(err) callback(null, "I did not get added to connector's accounts")
         else{
 
-            console.log(" has been added to connector's accounts", response.didSucceed)
+            callback(null, " has been added to connector's accounts", response.didSucceed)
 
         }
 
     });
 }
 
-async function runTrackAccount() {
+function runTrackAccount(callback) {
 
-    console.log("running track account")
-    return await client.trackConnection({accountId: newAccountData.id}, function(err, response){
+    client.trackConnection({accountId: newAccountData.id}, function(err, response){
 
-        if(err) console.log("I did not get added to connector's routing table")
+        if(err) callback(null, "I did not get added to connector's routing table")
         else{
 
-            console.log("I have been added to connector's routing table")
+            callback(null, "I have been added to connector's routing table")
 
         }
 
     })
 }
 
-async function runUntrackAccount() {
-    await client.untrackConnection({accountId: newAccountData.id}, function(err, response){
+function runUntrackAccount(callback) {
+    client.untrackConnection({accountId: newAccountData.id}, function(err, response){
 
-        if(err) console.log("I did not get removed from connector's routing table")
+        if(err) callback(null, "I did not get removed from connector's routing table")
         else{
 
-            console.log("I have been removed from connector's routing table")
+            callback(null, "I have been removed from connector's routing table")
 
         }
 
     })
+}
+
+function runChangeConnectionStatus(callback){
+
+    client.handleConnectionChange({accountId: newAccountData.id, isConnected: true}, function(err, response){
+
+        if(err) callback(null, "could not change connection status")
+        else callback(null, "Connection status changed")
+
+    })
+
+}
+
+function runRegisterDataStream(callback){
+
+    stream.write({
+        accountId: newAccountData.id,
+        type: 'registerStream'
+    });
+
+    callback(null, "registered stream")
+
+}
+
+function runRemoveAccount(callback){
+
+    client.removeAccount({accountId: newAccountData.id}, function(err, resp){
+
+        if(err) callback(null, 'account could not be removed')
+        else callback(null, 'account removed')
+
+    })
+
 }
 
 function main() {
@@ -153,11 +200,14 @@ function main() {
     // const plugin = compat(new Plugin(opts, api))
 
     async.series([
-        runUntrackAccount,
-        runTest,
-        runTrackAccount,
         runAddAccount,
-    ])
+        runTrackAccount,
+        runChangeConnectionStatus,
+        runRegisterDataStream,
+        runDataHandleTest,
+        runUntrackAccount,
+        runRemoveAccount,
+    ], function(err, results){console.log(results)})
 
 }
 

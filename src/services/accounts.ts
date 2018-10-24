@@ -179,16 +179,16 @@ export default class Accounts extends EventEmitter {
   }
 
   remove (accountId: string) {
-    const plugin = this.getPlugin(accountId)
-    if (!plugin) {
-      return undefined
-    }
+    // const plugin = this.getPlugin(accountId)
+    // if (!plugin) {
+    //   return undefined
+    // }
     log.info('remove account. accountId=' + accountId)
-
-    this.emit('remove', accountId, plugin)
+//TODO: not sure what is listening for this event
+    this.emit('remove', accountId)
 
     this.accounts.delete(accountId)
-    return plugin
+    // return plugin
   }
 
   getInfo (accountId: string) {

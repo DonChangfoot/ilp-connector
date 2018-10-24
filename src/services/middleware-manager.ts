@@ -131,7 +131,7 @@ export default class MiddlewareManager {
     }
   }
 
-  async addPlugin (accountId: string, plugin: PluginInstance) {
+  async addPlugin (accountId: string, plugin?: PluginInstance) {
     const pipelines: Pipelines = {
       startup: new MiddlewarePipeline<void, void>(),
       incomingData: new MiddlewarePipeline<Buffer, Buffer>(),
@@ -198,9 +198,6 @@ export default class MiddlewareManager {
 
     this.incomingDataHandlers.set(accountId, incomingDataHandler)
     this.incomingMoneyHandlers.set(accountId, incomingMoneyHandler)
-
-    // plugin.registerDataHandler(incomingDataHandler)
-    // plugin.registerMoneyHandler(incomingMoneyHandler)
   }
 
   removePlugin (accountId: string, plugin: PluginInstance) {
