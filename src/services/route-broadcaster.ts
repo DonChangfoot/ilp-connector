@@ -42,14 +42,14 @@ export default class RouteBroadcaster {
   private localRoutes: Map<string, Route>
   private routingSecret: Buffer
   private untrackCallbacks: Map<string, () => void> = new Map()
-  // private pluginManager: PluginManager
+  private pluginManager: PluginManager
 
   constructor (deps: reduct.Injector) {
     this.deps = deps
     this.localRoutingTable = deps(RoutingTable)
     this.forwardingRoutingTable = deps(ForwardingRoutingTable)
     this.accounts = deps(Accounts)
-    // this.pluginManager = deps(PluginManager)
+    this.pluginManager = deps(PluginManager)
     this.config = deps(Config)
 
     if (this.config.routingSecret) {
@@ -67,9 +67,9 @@ export default class RouteBroadcaster {
   start () {
     this.reloadLocalRoutes()
 
-    // for (const accountId of this.accounts.getAccountIds()) {
-    //   this.track(accountId)
-    // }
+    for (const accountId of this.accounts.getAccountIds()) {
+      this.track(accountId)
+    }
   }
 
   stop () {
@@ -78,17 +78,35 @@ export default class RouteBroadcaster {
     }
   }
 
-  track (accountId: string, pluginIsConnected: boolean) {
+  track (accountId: string) {
     if (this.untrackCallbacks.has(accountId)) {
       // Already tracked
       return
     }
 
-    this.untrackCallbacks.set(accountId, () => {
+    const connectHandler = () => {
+      if (!this.pluginManager.isConnected(accountId)) {
+        // some plugins don't set `isConnected() = true` before emitting the
+        // connect event, setImmediate has a good chance of working.
+        log.error('(!!!) plugin emitted connect, but then returned false for isConnected, broken plugin. account=%s', accountId)
+        setImmediate(() => this.add(accountId))
+      } else {
+        this.add(accountId)
+      }
+    }
+    const disconnectHandler = () => {
+      this.remove(accountId)
+    }
 
+    this.pluginManager.registerConnectHandler(accountId, connectHandler);
+    this.pluginManager.registerDisconnectHandler(accountId, disconnectHandler);
+
+    this.untrackCallbacks.set(accountId, () => {
+      this.pluginManager.deregisterConnectHandler(accountId)
+      this.pluginManager.deregisterDisonnectHandler(accountId)
     })
 
-    this.add(accountId, pluginIsConnected)
+    this.add(accountId)
   }
 
   untrack (accountId: string) {
@@ -101,7 +119,7 @@ export default class RouteBroadcaster {
     }
   }
 
-  add (accountId: string, pluginIsConnected: boolean) {
+  add (accountId: string) {
     const accountInfo = this.accounts.getInfo(accountId)
 
     let sendRoutes
@@ -142,7 +160,7 @@ export default class RouteBroadcaster {
       return
     }
 
-    if (pluginIsConnected) {
+    if (this.pluginManager.isConnected(accountId)) {
       log.trace('add peer. accountId=%s sendRoutes=%s receiveRoutes=%s', accountId, sendRoutes, receiveRoutes)
       const peer = new Peer({ deps: this.deps, accountId, sendRoutes, receiveRoutes })
       this.peers.set(accountId, peer)

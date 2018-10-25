@@ -11,6 +11,7 @@ import {
 import ILDCP = require('ilp-protocol-ildcp')
 
 import { create as createLogger } from '../common/log'
+import PluginManager from "./plugin-manager"
 const log = createLogger('accounts')
 
 export interface AccountEntry {
@@ -25,12 +26,14 @@ export default class Accounts extends EventEmitter {
 
   protected address: string
   protected accounts: Map<string, AccountEntry>
+  protected pluginManager: PluginManager
 
   constructor (deps: reduct.Injector) {
     super()
 
     this.config = deps(Config)
     this.store = deps(Store)
+    this.pluginManager = deps(PluginManager)
 
     this.address = this.config.ilpAddress || 'unknown'
     this.accounts = new Map()
@@ -46,12 +49,15 @@ export default class Accounts extends EventEmitter {
     if (this.config.ilpAddress === 'unknown' && !inheritFrom) {
       throw new Error('When there is no parent, ILP address must be specified in configuration.')
     } else if (this.config.ilpAddress === 'unknown' && inheritFrom) {
-      const parent = this.getPlugin(inheritFrom)
 
-      log.trace('connecting to parent. accountId=%s', inheritFrom)
-      await parent.connect({})
+      //TODO: fix
+      // const parent = this.getPlugin(inheritFrom)
+      //
+      // log.trace('connecting to parent. accountId=%s', inheritFrom)
+      // await parent.connect({})
 
-      const ildcpInfo = await ILDCP.fetch(parent.sendData.bind(parent))
+      // const ildcpInfo = await ILDCP.fetch(parent.sendData.bind(parent))
+      const ildcpInfo = await ILDCP.fetch((data: Buffer) => this.pluginManager.sendData(data, inheritFrom))
 
       this.setOwnAddress(ildcpInfo.clientAddress)
 
@@ -63,15 +69,15 @@ export default class Accounts extends EventEmitter {
   }
 
   async connect (options: ConnectOptions) {
-    const unconnectedAccounts = Array.from(this.accounts.values())
-      .filter(account => !account.plugin.isConnected())
-    return Promise.all(unconnectedAccounts.map(account => account.plugin.connect(options)))
+    // const unconnectedAccounts = Array.from(this.accounts.values())
+    //   .filter(account => !account.plugin.isConnected())
+    // return Promise.all(unconnectedAccounts.map(account => account.plugin.connect(options)))
   }
 
   async disconnect () {
-    const connectedAccounts = Array.from(this.accounts.values())
-      .filter(account => account.plugin.isConnected())
-    return Promise.all(connectedAccounts.map(account => account.plugin.disconnect()))
+    // const connectedAccounts = Array.from(this.accounts.values())
+    //   .filter(account => account.plugin.isConnected())
+    // return Promise.all(connectedAccounts.map(account => account.plugin.disconnect()))
   }
 
   getOwnAddress () {
@@ -136,45 +142,11 @@ export default class Accounts extends EventEmitter {
       throw err
     }
 
-    //TODO: move into account service
-
-    // const Plugin = require(creds.plugin)
-    //
-    // const api: any = {}
-    // // Lazily create plugin utilities
-    // Object.defineProperty(api, 'store', {
-    //   get: () => {
-    //     return this.store.getPluginStore(accountId)
-    //   }
-    // })
-    // Object.defineProperty(api, 'log', {
-    //   get: () => {
-    //     return createLogger(`${creds.plugin}[${accountId}]`)
-    //   }
-    // })
-    //
-    // const opts = Object.assign({}, creds.options)
-    // // Provide old deprecated _store and _log properties
-    // Object.defineProperty(opts, '_store', {
-    //   get: () => {
-    //     log.warn('DEPRECATED: plugin accessed deprecated _store property. accountId=%s', accountId)
-    //     return api.store
-    //   }
-    // })
-    // Object.defineProperty(opts, '_log', {
-    //   get: () => {
-    //     log.warn('DEPRECATED: plugin accessed deprecated _log property. accountId=%s', accountId)
-    //     return api.log
-    //   }
-    // })
-    //
-    // const plugin = compat(new Plugin(opts, api))
-
     this.accounts.set(accountId, {
       info: creds
     })
 
-    // this.emit('add', accountId, plugin)
+    //TODO: not sure what is listening to this event
     this.emit('add', accountId)
   }
 
@@ -219,8 +191,9 @@ export default class Accounts extends EventEmitter {
       accounts[accountId] = {
         // Set info.options to undefined so that credentials aren't exposed.
         info: Object.assign({}, account.info, { options: undefined }),
-        connected: account.plugin.isConnected(),
-        adminInfo: !!account.plugin.getAdminInfo
+        connected: this.pluginManager.isConnected(accountId),
+        //TODO: add getAdminInfo functionality
+        adminInfo: false//!!account.plugin.getAdminInfo
       }
     })
     return {

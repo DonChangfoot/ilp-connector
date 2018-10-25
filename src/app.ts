@@ -39,6 +39,35 @@ function listen (
     }
 
     //Start gRPC
+
+    pluginManager.registerNewPluginHandler(async (id: string, options: object) => {
+
+      accounts.add(id, options);
+
+      middlewareManager.addPlugin(id, pluginManager)
+
+      routeBroadcaster.track(id)
+
+      await accounts.loadIlpAddress()
+
+      //braodcast routes if set to
+
+      console.log("Accounts: ", accounts.getAccountIds())
+
+    })
+
+    pluginManager.registerRemovePluginHandler(async (id: string) => {
+
+      middlewareManager.removePlugin(id, pluginManager)
+
+      routeBroadcaster.untrack(id)
+
+      accounts.remove(id)
+
+      console.log("Accounts: ", accounts.getAccountIds())
+
+    })
+
     pluginManager.listen()
 
 
@@ -154,12 +183,6 @@ export default function createApp (opts?: object, container?: reduct.Injector) {
   const middlewareManager = deps(MiddlewareManager)
   const adminApi = deps(AdminApi)
   const pluginManager = deps(PluginManager)
-
-    //TODO: listen on gRPC port for account processes instead
-  // const credentials = config.accounts
-  // for (let id of Object.keys(credentials)) {
-  //   accounts.add(id, credentials[id])
-  // }
 
   return {
     config,

@@ -29,8 +29,15 @@ var hello_proto = grpc.loadPackageDefinition(packageDefinition).account;
 var client = new hello_proto.Account('localhost:50051',
     grpc.credentials.createInsecure());
 
+var user;
+if (process.argv.length >= 3) {
+    user = process.argv[2];
+} else {
+    user = 'world';
+}
+
 const newAccountData = {
-    id: 'dirk',
+    id: user,
     info: {
         relation: 'child',
         assetScale: 6,
@@ -38,10 +45,10 @@ const newAccountData = {
         plugin: 'ilp-plugin-mirror',
         options: {
             info: {
-                prefix: 'test.quickstart.dirk',
+                prefix: 'test.quickstart.' + user,
                 grpcAddress: '0.0.0.0:50052',
             },
-            account: 'test.quickstart.dirk.connector',
+            account: 'test.quickstart.' + user + '.connector',
             balance: '0'
         }
     },
@@ -54,6 +61,44 @@ stream.on('data',function(data){
     console.log("got data from connector", data)
 
 })
+
+const deps = reduct();
+
+// this.config = deps(Config)
+// this.store = deps(Store)
+
+
+const Plugin = require(newAccountData.info.plugin)
+
+const api = {}
+// Lazily create plugin utilities
+Object.defineProperty(api, 'store', {
+    get: () => {
+        return this.store.getPluginStore(newAccountData.id)
+    }
+})
+Object.defineProperty(api, 'log', {
+    get: () => {
+        return createLogger(`${newAccountData.info.plugin}[${newAccountData.id}]`)
+    }
+})
+
+const opts = {}
+// Provide old deprecated _store and _log properties
+Object.defineProperty(opts, '_store', {
+    get: () => {
+        log.warn('DEPRECATED: plugin accessed deprecated _store property. accountId=%s', accountId)
+        return api.store
+    }
+})
+Object.defineProperty(opts, '_log', {
+    get: () => {
+        log.warn('DEPRECATED: plugin accessed deprecated _log property. accountId=%s', accountId)
+        return api.log
+    }
+})
+
+const plugin = compat(new Plugin(opts, api))
 
 async function runHandleData() {
     const data = Ildcp.serializeIldcpRequest()
@@ -161,51 +206,11 @@ function runRemoveAccount(callback){
 
 function main() {
 
-    // const deps = reduct();
-    //
-    // // this.config = deps(Config)
-    // // this.store = deps(Store)
-    //
-    //
-    // const Plugin = require(newAccountData.info.plugin)
-    //
-    // const api = {}
-    // // Lazily create plugin utilities
-    // Object.defineProperty(api, 'store', {
-    //     get: () => {
-    //         return this.store.getPluginStore(newAccountData.id)
-    //     }
-    // })
-    // Object.defineProperty(api, 'log', {
-    //     get: () => {
-    //         return createLogger(`${newAccountData.info.plugin}[${newAccountData.id}]`)
-    //     }
-    // })
-    //
-    // const opts = {}
-    // // Provide old deprecated _store and _log properties
-    // Object.defineProperty(opts, '_store', {
-    //     get: () => {
-    //         log.warn('DEPRECATED: plugin accessed deprecated _store property. accountId=%s', accountId)
-    //         return api.store
-    //     }
-    // })
-    // Object.defineProperty(opts, '_log', {
-    //     get: () => {
-    //         log.warn('DEPRECATED: plugin accessed deprecated _log property. accountId=%s', accountId)
-    //         return api.log
-    //     }
-    // })
-    //
-    // const plugin = compat(new Plugin(opts, api))
-
     async.series([
         runAddAccount,
-        runTrackAccount,
         runChangeConnectionStatus,
         runRegisterDataStream,
         runDataHandleTest,
-        runUntrackAccount,
         runRemoveAccount,
     ], function(err, results){console.log(results)})
 
