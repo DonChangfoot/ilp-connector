@@ -85,12 +85,8 @@ async function main() {
         server: "0.0.0.0:5505",
         accountId: newAccountData.id,
         accountOptions: newAccountData.info,
-        dataHandler: (from, data) =>{
-            console.log('from', from   , 'data', data  )
-            return IlpPacket.serializeIlpFulfill({
-                    fulfillment: Buffer.from('HS8e5Ew02XKAglyus2dh2Ohabuqmy3HDM8EXMLz22ok', 'base64'),
-                data: Buffer.from('thank you')
-            })}
+        dataHandler: (from, data) =>
+            {console.log('from', from, 'data', data);}
     })
 
     await client.connect()
@@ -103,20 +99,24 @@ async function main() {
         },
         function runChangeConnectionStatus(callback){
 
-            client.updateConnectionStatus(true).then(() => callback(null, "Connection status changed")).catch((error) => {console.log('error', error); callback(null, "could not change connection status")})
+            client.updateConnectionStatus(true).then(() => setTimeout(() => callback(null, "Connection status changed"), 3000)).catch((error) => {console.log('error', error); callback(null, "could not change connection status")})
 
         },
-        // function runDataHandleTest(callback) {
-        //
-        //    client.sendData(IlpPacket.serializeIlpPrepare({
-        //        amount: '10',
-        //        expiresAt: new Date(),
-        //        executionCondition: Buffer.alloc(32),
-        //        destination: 'test.quickstart.' + user,
-        //        data: Buffer.from('hello world')
-        //    })).then(data => callback(null, IlpPacket.deserializeIlpPrepare(data))).catch((error) => {console.log('error', error); callback(null, "failed to send data")})
-        //
-        // }
+        // function runwait(callback){
+        //     setTimeout(()=> callback(null, ''), 3000)
+        // },
+        function runDataHandleTest(callback) {
+
+           client.sendData(IlpPacket.serializeIlpPrepare({
+               amount: '10',
+               expiresAt: new Date((new Date()).getTime() + 30000),
+               executionCondition: Buffer.from('uzoYx3K6u+Nt6kZjbN6KmH0yARfhkj9e17eQfpSeB7U=', 'base64'),
+               // executionCondition: Buffer.alloc(32),
+               destination: 'test.quickstart.world',
+               data: Buffer.from('hello world')
+           })).then(data => {console.log("dirk received", IlpPacket.deserializeIlpPacket(data));callback(null, data)}).catch((error) => {console.log('error', error); callback(null, "failed to send data")})
+
+        }
         // runRemoveAccount,
     ], function(err, results){console.log(results)})
 

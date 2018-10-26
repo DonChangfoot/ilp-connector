@@ -18,7 +18,7 @@ import {
 } from '../types/middleware'
 import { PluginInstance, DataHandler, MoneyHandler } from '../types/plugin'
 import MiddlewarePipeline from '../lib/middleware-pipeline'
-import { Errors } from 'ilp-packet'
+import {Errors, IlpPacket} from 'ilp-packet'
 import PluginManager from "./plugin-manager"
 const { codes, UnreachableError } = Errors
 
@@ -153,9 +153,8 @@ export default class MiddlewareManager {
     // Generate outgoing middleware
     const submitData = async (data: Buffer) => {
       try {
-        //TODO: need to return data that ought to be sent by plugin service
-        return data;
-        // return await plugin.sendData(data)
+
+        return await pluginManager.sendData(data, accountId);
 
       } catch (e) {
         let err = e

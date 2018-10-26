@@ -18,7 +18,7 @@ const {
 export default class RouteBuilder {
   protected pluginManager: PluginManager
   protected accounts: Accounts
-  protected routingTable: RoutingTable
+  public routingTable: RoutingTable
   protected backend: RateBackend
   protected config: Config
 

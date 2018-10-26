@@ -5,20 +5,7 @@ import MiddlewareManager from "./middleware-manager";
 import RouteBroadcaster from "./route-broadcaster";
 import * as Ildcp from "ilp-protocol-ildcp";
 import {DataHandler, MoneyHandler} from "../types/plugin"
-import * as grpc from 'grpc'
-var PROTO_PATH = __dirname + '/../../resources/protos/account.proto';
-// var grpc = require('grpc');
-var protoLoader = require('@grpc/proto-loader');
-var packageDefinition = protoLoader.loadSync(
-    PROTO_PATH,
-    {keepCase: true,
-        longs: String,
-        enums: String,
-        defaults: true,
-        oneofs: true
-    });
-const proto = grpc.loadPackageDefinition(packageDefinition);
-const account = proto.account;
+import IlpGrpc from 'ilp-grpc'
 
 
 const log_1 = require('../../src/common/log')
@@ -34,15 +21,15 @@ export default class PluginManager {
 
   protected deps: reduct.Injector
   protected config: Config
-  private server?: grpc.Server
   private pluginStreams: Map<string, any>
   protected pluginIsConnected: Map<string, any>
-  protected newPluginHandler?: Function
+  protected newPluginHandler?: any
   protected removePluginHandler?: Function
-  protected dataHandlers: Map<string, DataHandler>
+  public dataHandlers: Map<string, DataHandler>
   protected moneyHandlers: Map<string, MoneyHandler>
   protected connectHandlers: Map<string, Function>
   protected disconnectHandlers: Map<string, Function>
+  protected GRPCServer: any
 
   constructor(deps: reduct.Injector) {
 
@@ -94,6 +81,8 @@ export default class PluginManager {
   }
 
   registerDataHandler(accountId: string, handler: DataHandler){
+
+    console.log("registering data handler for " + accountId)
 
     if(this.dataHandlers.get(accountId)) throw new Error("Data handler already exists for account: " + accountId)
 
@@ -149,98 +138,13 @@ export default class PluginManager {
 
   }
 
-  async addAccount(call, callback) {
-
-    const accountConfig = call.request;
-
-    if(!this.newPluginHandler) {
-
-      callback(1, null)
-
-      throw new Error("There is no new plugin handler specified.")
-    }
-
-    this.newPluginHandler(accountConfig.id, accountConfig.info);
-
-    callback(null, {didSucceed: 1})
-
-  }
-
-  async handleData(call, callback) {
-
-    const {accountId, buffer} = call.request;
-
-    let handler = this.dataHandlers.get(accountId);
-
-    if(!handler){
-
-      callback({}, null);
-
-      throw new Error("There is no data handler specified for account: " + accountId)
-
-    }
-
-    const data = await handler(buffer);
-
-    callback(null, {buffer: data});
-
-  }
-
-  trackConnection(call, callback) {
-
-    // try {
-    //
-    //   this.routeBroadcaster.track(call.request.accountId, this.pluginIsConnected.get(call.request.accountId));
-    //   callback(null, {});
-    //
-    // }
-    // catch (e) {
-    //
-    //   callback({}, null);
-    //
-    // }
-
-  }
-
-  untrackConnection(call, callback) {
-
-    // try {
-    //
-    //   this.routeBroadcaster.untrack(call.request.accountId);
-    //   callback(null, {});
-    //
-    // }
-    // catch (e) {
-    //
-    //   callback({}, null);
-    //
-    // }
-
-  }
-
   isConnected(accountId: string){
     return this.pluginIsConnected.get(accountId);
   }
 
-  sendData(serializedPacket: any, accountId: string): Promise<Buffer>{
+  async sendData(data: Buffer, accountId: string): Promise<Buffer>{
 
-    return new Promise((resolve, reject) => {
-
-      let stream = this.pluginStreams.get(accountId);
-
-      if(stream){
-        stream.write({accountId: 'dirk', buffer: Ildcp.serializeIldcpRequest({})});
-      }
-      else reject()
-
-      const fulfill = IlpPacket.serializeIlpFulfill({
-        fulfillment,
-        data: Buffer.from('thank you')
-      });
-
-      resolve(fulfill);
-
-    })
+    return await this.GRPCServer.sendData(data, accountId)
 
   }
 
@@ -288,24 +192,49 @@ export default class PluginManager {
 
   }
 
-  listen() {
+  async listen() {
 //TODO: set port and host through config options
-    log.info('grpc server listening. host=%s port=%s', '0.0.0.0', 50051)
-    this.server = new grpc.Server();
+    log.info('grpc server listening. host=%s port=%s', '0.0.0.0', 5505)
 
-    // @ts-ignore
-    const service = account.Account.service
-    this.server.addService(service, {
-      addAccount: this.addAccount.bind(this),
-      handleData: this.handleData.bind(this),
-      trackConnection: this.trackConnection.bind(this),
-      untrackConnection: this.untrackConnection.bind(this),
-      handleConnectionChange : this.handleConnectionChange.bind(this),
-      registerDataStream: this.registerDataStream.bind(this),
-      removeAccount: this.removeAccount.bind(this)
-    });
-    this.server.bind('0.0.0.0:50051', grpc.ServerCredentials.createInsecure());
-    this.server.start();
+    this.GRPCServer = new IlpGrpc({
+      listener: {
+        port: 5505,
+        secret: ''
+      },
+      dataHandler: (from: string, data: Buffer) => {
+
+        console.log("dataHandler for grpc", from, 'data', IlpPacket.deserializeIlpPacket(data))
+
+        let handler = this.dataHandlers.get(from);
+
+        if(!handler) throw new Error("No handler for account: ")
+
+        return handler(data)
+
+      },
+      addAccountHandler: this.newPluginHandler,
+      connectionChangeHandler: (accountId: string, isConnected: boolean) => {
+
+        this.pluginIsConnected.set(accountId, isConnected);
+
+        if(isConnected){
+          let connectHandler = this.connectHandlers.get(accountId)
+
+          if(!connectHandler) throw new Error("There is no connect handler for account " + accountId)
+
+          connectHandler()
+        }
+        else{
+
+          let disconnectHandler = this.disconnectHandlers.get(accountId)
+          if(disconnectHandler) disconnectHandler()
+
+        }
+
+      }
+    })
+
+    await this.GRPCServer.connect()
 
   }
 

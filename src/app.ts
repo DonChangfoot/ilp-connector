@@ -44,13 +44,21 @@ function listen (
 
       accounts.add(id, options);
 
-      middlewareManager.addPlugin(id, pluginManager)
+      await middlewareManager.addPlugin(id, pluginManager)
 
       routeBroadcaster.track(id)
 
       await accounts.loadIlpAddress()
 
       //braodcast routes if set to
+
+      if (config.routeBroadcastEnabled) {
+        routeBroadcaster.start()
+      }
+
+      // console.log("routing table", routeBuilder.routingTable)
+
+      // console.log("dataHandlers", pluginManager.dataHandlers.get('world'), pluginManager.dataHandlers.get('dirk'))
 
       console.log("Accounts: ", accounts.getAccountIds())
 

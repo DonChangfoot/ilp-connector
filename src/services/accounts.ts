@@ -55,7 +55,7 @@ export default class Accounts extends EventEmitter {
       //
       // log.trace('connecting to parent. accountId=%s', inheritFrom)
       // await parent.connect({})
-
+console.log("******************herererererere")
       // const ildcpInfo = await ILDCP.fetch(parent.sendData.bind(parent))
       const ildcpInfo = await ILDCP.fetch((data: Buffer) => this.pluginManager.sendData(data, inheritFrom))
 
