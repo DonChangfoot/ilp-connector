@@ -308,6 +308,18 @@
       "type": "string",
       "default": "127.0.0.1"
     },
+    "grpcServerPort": {
+      "description": "Which port the grpc server should listen on. Default: 5505",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "default": 5505
+    },
+    "grpcServerHost": {
+      "description": "Host to bind to. Warning: Default: '127.0.0.1'",
+      "type": "string",
+      "default": "127.0.0.1"
+    },
     "collectDefaultMetrics": {
       "description": "Whether the Prometheus exporter should include system metrics or not. Default: false (no)",
       "type": "boolean",

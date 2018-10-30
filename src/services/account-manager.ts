@@ -1,31 +1,19 @@
-import Accounts from "./accounts";
 import reduct = require('reduct')
 import Config from "./config";
-import MiddlewareManager from "./middleware-manager";
-import RouteBroadcaster from "./route-broadcaster";
-import * as Ildcp from "ilp-protocol-ildcp";
 import {DataHandler, MoneyHandler} from "../types/plugin"
 import IlpGrpc from 'ilp-grpc'
 
-
 const log_1 = require('../../src/common/log')
-const log = log_1.create('plugin-manager')
+const log = log_1.create('account-manager')
 
-const crypto = require('crypto')
-function sha256 (preimage) { return crypto.createHash('sha256').update(preimage).digest() }
-const fulfillment = crypto.randomBytes(32)
-const condition = sha256(fulfillment)
-var IlpPacket = require("ilp-packet");
-
-export default class PluginManager {
+export default class AccountManager {
 
   protected deps: reduct.Injector
   protected config: Config
-  private pluginStreams: Map<string, any>
-  protected pluginIsConnected: Map<string, any>
-  protected newPluginHandler?: any
-  protected removePluginHandler?: Function
-  public dataHandlers: Map<string, DataHandler>
+  protected accountIsConnected: Map<string, any>
+  protected newAccountHandler?: Function
+  protected removeAccountHandler?: Function
+  protected dataHandlers: Map<string, DataHandler>
   protected moneyHandlers: Map<string, MoneyHandler>
   protected connectHandlers: Map<string, Function>
   protected disconnectHandlers: Map<string, Function>
@@ -35,8 +23,7 @@ export default class PluginManager {
 
     this.deps = deps
     this.config = deps(Config)
-    this.pluginStreams = new Map()
-    this.pluginIsConnected = new Map()
+    this.accountIsConnected = new Map()
     this.dataHandlers = new Map()
     this.moneyHandlers = new Map()
     this.connectHandlers = new Map()
@@ -44,45 +31,43 @@ export default class PluginManager {
 
   }
 
-  registerNewPluginHandler(handler: Function){
+  registerNewAccountHandler(handler: Function){
 
-    if(this.newPluginHandler) throw new Error("New plugin handler already exists")
+    if(this.newAccountHandler) throw new Error("New plugin handler already exists")
 
     log.info("Plugin manager registering new plugin handler.")
 
-    this.newPluginHandler = handler
+    this.newAccountHandler = handler
 
   }
 
-  deregisterNewPluginHandler(){
+  deregisterNewAccountHandler(){
 
     log.info("Plugin manager deregistering new plugin handler.")
 
-    this.newPluginHandler = undefined
+    this.newAccountHandler = undefined
 
   }
 
-  registerRemovePluginHandler(handler: Function){
+  registerRemoveAccountHandler(handler: Function){
 
-    if(this.removePluginHandler) throw new Error("Remove plugin handler already exists")
+    if(this.removeAccountHandler) throw new Error("Remove plugin handler already exists")
 
     log.info("Plugin manager registering remove plugin handler.")
 
-    this.removePluginHandler = handler
+    this.removeAccountHandler = handler
 
   }
 
-  deregisterRemovePluginHandler(){
+  deregisterRemoveAccountHandler(){
 
     log.info("Plugin manager deregistering removing plugin handler.")
 
-    this.removePluginHandler = undefined
+    this.removeAccountHandler = undefined
 
   }
 
   registerDataHandler(accountId: string, handler: DataHandler){
-
-    console.log("registering data handler for " + accountId)
 
     if(this.dataHandlers.get(accountId)) throw new Error("Data handler already exists for account: " + accountId)
 
@@ -139,7 +124,7 @@ export default class PluginManager {
   }
 
   isConnected(accountId: string){
-    return this.pluginIsConnected.get(accountId);
+    return this.accountIsConnected.get(accountId);
   }
 
   async sendData(data: Buffer, accountId: string): Promise<Buffer>{
@@ -148,62 +133,21 @@ export default class PluginManager {
 
   }
 
-  handleConnectionChange(call, callback){
-
-    const {accountId, isConnected} = call.request;
-
-    this.pluginIsConnected.set(accountId, isConnected);
-
-    callback(null, {});
-
-  }
-
-  registerDataStream(call){
-
-    const self = this;
-
-    call.on('data', function(data){
-
-      if(data.type === 'registerStream') {
-        console.log("storing plugin stream")
-        self.pluginStreams.set(data.accountId, call)
-        setTimeout(() => self.sendData(Ildcp.serializeIldcpRequest({}), 'dirk').then(fulfill => console.log('received fulfill', fulfill)).catch(() => console.log("failed to send data")), 1000)
-      }
-      else console.log("received from plugin", data)
-
-    })
-
-  }
-
-  removeAccount(call, callback){
-
-    const {accountId} = call.request;
-
-    if(!this.removePluginHandler) {
-
-      callback({}, null)
-
-      throw new Error("There is no remove plugin handler specified.")
-    }
-
-    this.removePluginHandler(accountId)
-
-    callback(null, {})
-
-  }
-
   async listen() {
-//TODO: set port and host through config options
-    log.info('grpc server listening. host=%s port=%s', '0.0.0.0', 5505)
+
+    const {
+      grpcServerHost = '127.0.0.1',
+      grpcServerPort = 5505
+    } = this.config
+
+    log.info('grpc server listening. host=%s port=%s', grpcServerHost, grpcServerPort)
 
     this.GRPCServer = new IlpGrpc({
       listener: {
-        port: 5505,
+        port: grpcServerPort || 5505,
         secret: ''
       },
       dataHandler: (from: string, data: Buffer) => {
-
-        console.log("dataHandler for grpc", from, 'data', IlpPacket.deserializeIlpPacket(data))
 
         let handler = this.dataHandlers.get(from);
 
@@ -212,10 +156,23 @@ export default class PluginManager {
         return handler(data)
 
       },
-      addAccountHandler: this.newPluginHandler,
+      addAccountHandler: this.newAccountHandler,
+      removeAccountHandler: (id: string) => {
+
+        this.accountIsConnected.delete(id)
+        this.dataHandlers.delete(id)
+        this.moneyHandlers.delete(id)
+        this.connectHandlers.delete(id)
+        this.disconnectHandlers.delete(id)
+
+        if(this.removeAccountHandler){
+          this.removeAccountHandler(id)
+        }
+
+      },
       connectionChangeHandler: (accountId: string, isConnected: boolean) => {
 
-        this.pluginIsConnected.set(accountId, isConnected);
+        this.accountIsConnected.set(accountId, isConnected);
 
         if(isConnected){
           let connectHandler = this.connectHandlers.get(accountId)
@@ -235,6 +192,12 @@ export default class PluginManager {
     })
 
     await this.GRPCServer.connect()
+
+  }
+
+  shutdown(){
+
+    log.info("shutting down")
 
   }
 

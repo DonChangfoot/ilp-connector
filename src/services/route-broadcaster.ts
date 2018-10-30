@@ -25,7 +25,7 @@ import {
   CcpRouteControlRequest,
   CcpRouteUpdateRequest
 } from 'ilp-protocol-ccp'
-import PluginManager from "./plugin-manager";
+import AccountManager from "./account-manager";
 const { BadRequestError } = Errors
 
 export default class RouteBroadcaster {
@@ -42,14 +42,14 @@ export default class RouteBroadcaster {
   private localRoutes: Map<string, Route>
   private routingSecret: Buffer
   private untrackCallbacks: Map<string, () => void> = new Map()
-  private pluginManager: PluginManager
+  private accountManager: AccountManager
 
   constructor (deps: reduct.Injector) {
     this.deps = deps
     this.localRoutingTable = deps(RoutingTable)
     this.forwardingRoutingTable = deps(ForwardingRoutingTable)
     this.accounts = deps(Accounts)
-    this.pluginManager = deps(PluginManager)
+    this.accountManager = deps(AccountManager)
     this.config = deps(Config)
 
     if (this.config.routingSecret) {
@@ -85,7 +85,7 @@ export default class RouteBroadcaster {
     }
 
     const connectHandler = () => {
-      if (!this.pluginManager.isConnected(accountId)) {
+      if (!this.accountManager.isConnected(accountId)) {
         // some plugins don't set `isConnected() = true` before emitting the
         // connect event, setImmediate has a good chance of working.
         log.error('(!!!) plugin emitted connect, but then returned false for isConnected, broken plugin. account=%s', accountId)
@@ -98,12 +98,12 @@ export default class RouteBroadcaster {
       this.remove(accountId)
     }
 
-    this.pluginManager.registerConnectHandler(accountId, connectHandler);
-    this.pluginManager.registerDisconnectHandler(accountId, disconnectHandler);
+    this.accountManager.registerConnectHandler(accountId, connectHandler);
+    this.accountManager.registerDisconnectHandler(accountId, disconnectHandler);
 
     this.untrackCallbacks.set(accountId, () => {
-      this.pluginManager.deregisterConnectHandler(accountId)
-      this.pluginManager.deregisterDisonnectHandler(accountId)
+      this.accountManager.deregisterConnectHandler(accountId)
+      this.accountManager.deregisterDisonnectHandler(accountId)
     })
 
     this.add(accountId)
@@ -117,6 +117,8 @@ export default class RouteBroadcaster {
     if (callback) {
       callback()
     }
+
+    this.untrackCallbacks.delete(accountId)
   }
 
   add (accountId: string) {
@@ -160,7 +162,7 @@ export default class RouteBroadcaster {
       return
     }
 
-    if (this.pluginManager.isConnected(accountId)) {
+    if (this.accountManager.isConnected(accountId)) {
       log.trace('add peer. accountId=%s sendRoutes=%s receiveRoutes=%s', accountId, sendRoutes, receiveRoutes)
       const peer = new Peer({ deps: this.deps, accountId, sendRoutes, receiveRoutes })
       this.peers.set(accountId, peer)

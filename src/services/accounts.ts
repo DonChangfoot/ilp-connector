@@ -11,7 +11,7 @@ import {
 import ILDCP = require('ilp-protocol-ildcp')
 
 import { create as createLogger } from '../common/log'
-import PluginManager from "./plugin-manager"
+import AccountManager from "./account-manager"
 const log = createLogger('accounts')
 
 export interface AccountEntry {
@@ -26,14 +26,14 @@ export default class Accounts extends EventEmitter {
 
   protected address: string
   protected accounts: Map<string, AccountEntry>
-  protected pluginManager: PluginManager
+  protected accountManager: AccountManager
 
   constructor (deps: reduct.Injector) {
     super()
 
     this.config = deps(Config)
     this.store = deps(Store)
-    this.pluginManager = deps(PluginManager)
+    this.accountManager = deps(AccountManager)
 
     this.address = this.config.ilpAddress || 'unknown'
     this.accounts = new Map()
@@ -50,14 +50,7 @@ export default class Accounts extends EventEmitter {
       throw new Error('When there is no parent, ILP address must be specified in configuration.')
     } else if (this.config.ilpAddress === 'unknown' && inheritFrom) {
 
-      //TODO: fix
-      // const parent = this.getPlugin(inheritFrom)
-      //
-      // log.trace('connecting to parent. accountId=%s', inheritFrom)
-      // await parent.connect({})
-console.log("******************herererererere")
-      // const ildcpInfo = await ILDCP.fetch(parent.sendData.bind(parent))
-      const ildcpInfo = await ILDCP.fetch((data: Buffer) => this.pluginManager.sendData(data, inheritFrom))
+      const ildcpInfo = await ILDCP.fetch((data: Buffer) => this.accountManager.sendData(data, inheritFrom))
 
       this.setOwnAddress(ildcpInfo.clientAddress)
 
@@ -66,18 +59,6 @@ console.log("******************herererererere")
         throw new Error('no ilp address configured.')
       }
     }
-  }
-
-  async connect (options: ConnectOptions) {
-    // const unconnectedAccounts = Array.from(this.accounts.values())
-    //   .filter(account => !account.plugin.isConnected())
-    // return Promise.all(unconnectedAccounts.map(account => account.plugin.connect(options)))
-  }
-
-  async disconnect () {
-    // const connectedAccounts = Array.from(this.accounts.values())
-    //   .filter(account => account.plugin.isConnected())
-    // return Promise.all(connectedAccounts.map(account => account.plugin.disconnect()))
   }
 
   getOwnAddress () {
@@ -146,21 +127,15 @@ console.log("******************herererererere")
       info: creds
     })
 
-    //TODO: not sure what is listening to this event
     this.emit('add', accountId)
   }
 
   remove (accountId: string) {
-    // const plugin = this.getPlugin(accountId)
-    // if (!plugin) {
-    //   return undefined
-    // }
     log.info('remove account. accountId=' + accountId)
-//TODO: not sure what is listening for this event
+
     this.emit('remove', accountId)
 
     this.accounts.delete(accountId)
-    // return plugin
   }
 
   getInfo (accountId: string) {
@@ -191,9 +166,7 @@ console.log("******************herererererere")
       accounts[accountId] = {
         // Set info.options to undefined so that credentials aren't exposed.
         info: Object.assign({}, account.info, { options: undefined }),
-        connected: this.pluginManager.isConnected(accountId),
-        //TODO: add getAdminInfo functionality
-        adminInfo: false//!!account.plugin.getAdminInfo
+        connected: this.accountManager.isConnected(accountId),
       }
     })
     return {

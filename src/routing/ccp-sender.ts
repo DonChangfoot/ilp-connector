@@ -10,8 +10,7 @@ import {
   ModeReverseMap,
   serializeCcpRouteUpdateRequest
 } from 'ilp-protocol-ccp'
-import { PluginInstance } from '../types/plugin'
-import PluginManager from "../services/plugin-manager";
+import AccountManager from "../services/account-manager";
 
 export interface BroadcastRoutesParams {
   accounts: Accounts,
@@ -26,7 +25,7 @@ export interface BroadcastRoutesParams {
 
 export interface CcpSenderOpts {
   accountId: string
-  pluginManager: PluginManager
+  accountManager: AccountManager
   forwardingRoutingTable: ForwardingRoutingTable
   getOwnAddress: () => string
   getAccountRelation: (accountId: string) => Relation
@@ -39,7 +38,7 @@ const MINIMUM_UPDATE_INTERVAL = 150
 const MAX_EPOCHS_PER_UPDATE = 50
 
 export default class CcpSender {
-  private pluginManager: PluginManager
+  private accountManager: AccountManager
   private forwardingRoutingTable: ForwardingRoutingTable
   private log: ConnectorLogger
   private accountId: string
@@ -59,14 +58,14 @@ export default class CcpSender {
 
   constructor ({
     accountId,
-    pluginManager,
+    accountManager,
     forwardingRoutingTable,
     getOwnAddress,
     getAccountRelation,
     routeExpiry,
     routeBroadcastInterval
   }: CcpSenderOpts) {
-    this.pluginManager = pluginManager
+    this.accountManager = accountManager
     this.forwardingRoutingTable = forwardingRoutingTable
     this.log = createLogger(`ccp-sender[${accountId}]`)
     this.accountId = accountId
@@ -175,7 +174,7 @@ export default class CcpSender {
   private async sendSingleRouteUpdate () {
     this.lastUpdate = Date.now()
 
-    if (!this.pluginManager.isConnected(this.accountId)) {
+    if (!this.accountManager.isConnected(this.accountId)) {
       this.log.debug('cannot send routes, plugin not connected (yet).')
       return
     }
@@ -267,7 +266,7 @@ export default class CcpSender {
 
     try {
       await Promise.race([
-        this.pluginManager.sendData(serializeCcpRouteUpdateRequest(routeUpdate), this.accountId),
+        this.accountManager.sendData(serializeCcpRouteUpdateRequest(routeUpdate), this.accountId),
         timerPromise
       ])
     } catch (err) {

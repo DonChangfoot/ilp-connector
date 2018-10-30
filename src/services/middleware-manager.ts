@@ -16,10 +16,10 @@ import {
   Pipeline,
   Pipelines
 } from '../types/middleware'
-import { PluginInstance, DataHandler, MoneyHandler } from '../types/plugin'
+import { DataHandler, MoneyHandler } from '../types/plugin'
 import MiddlewarePipeline from '../lib/middleware-pipeline'
-import {Errors, IlpPacket} from 'ilp-packet'
-import PluginManager from "./plugin-manager"
+import {Errors} from 'ilp-packet'
+import AccountManager from "./account-manager"
 const { codes, UnreachableError } = Errors
 
 interface VoidHandler {
@@ -111,10 +111,10 @@ export default class MiddlewareManager {
     })
   }
 
-  async setup (pluginManager: PluginManager) {
+  async setup (accountManager: AccountManager) {
     for (const accountId of this.accounts.getAccountIds()) {
 
-      await this.addPlugin(accountId, pluginManager)
+      await this.addPlugin(accountId, accountManager)
 
     }
   }
@@ -130,7 +130,7 @@ export default class MiddlewareManager {
     }
   }
 
-  async addPlugin (accountId: string, pluginManager: PluginManager) {
+  async addPlugin (accountId: string, accountManager: AccountManager) {
     const pipelines: Pipelines = {
       startup: new MiddlewarePipeline<void, void>(),
       incomingData: new MiddlewarePipeline<Buffer, Buffer>(),
@@ -154,7 +154,7 @@ export default class MiddlewareManager {
     const submitData = async (data: Buffer) => {
       try {
 
-        return await pluginManager.sendData(data, accountId);
+        return await accountManager.sendData(data, accountId);
 
       } catch (e) {
         let err = e
@@ -194,13 +194,13 @@ export default class MiddlewareManager {
     const incomingMoneyHandler: MoneyHandler =
       this.createHandler(pipelines.incomingMoney, accountId, handleMoney)
 
-    pluginManager.registerDataHandler(accountId, incomingDataHandler);
-    pluginManager.registerMoneyHandler(accountId, incomingMoneyHandler);
+    accountManager.registerDataHandler(accountId, incomingDataHandler);
+    accountManager.registerMoneyHandler(accountId, incomingMoneyHandler);
   }
 
-  removePlugin (accountId: string, pluginManager: PluginManager) {
-    pluginManager.deregisterDataHandler(accountId)
-    pluginManager.deregisterMoneyHandler(accountId)
+  removePlugin (accountId: string, accountManager: AccountManager) {
+    accountManager.deregisterDataHandler(accountId)
+    accountManager.deregisterMoneyHandler(accountId)
   }
 
   async sendData (data: Buffer, accountId: string) {

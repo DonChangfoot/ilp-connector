@@ -6,7 +6,7 @@ import reduct = require('reduct')
 import { Relation } from './relation'
 import CcpSender from './ccp-sender'
 import CcpReceiver from './ccp-receiver'
-import PluginManager from "../services/plugin-manager";
+import AccountManager from "../services/account-manager";
 
 export interface BroadcastRoutesParams {
   accounts: Accounts,
@@ -38,13 +38,13 @@ export default class Peer {
     this.accounts = deps(Accounts)
     this.accountId = accountId
 
-    const pluginManager = deps(PluginManager)
+    const accountManager = deps(AccountManager)
     const forwardingRoutingTable = deps(ForwardingRoutingTable)
 
     if (sendRoutes) {
       this.ccpSender = new CcpSender({
         accountId,
-        pluginManager,
+        accountManager: accountManager,
         forwardingRoutingTable,
         getOwnAddress: () => this.accounts.getOwnAddress(),
         getAccountRelation: this.getAccountRelation,
@@ -54,7 +54,7 @@ export default class Peer {
     }
 
     if (receiveRoutes) {
-      this.ccpReceiver = new CcpReceiver({ accountId, pluginManager })
+      this.ccpReceiver = new CcpReceiver({ accountId, accountManager: accountManager })
     }
   }
 
