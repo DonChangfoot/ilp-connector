@@ -1,13 +1,8 @@
 import reduct = require('reduct')
-import compat from 'ilp-compat-plugin'
 import Store from '../services/store'
 import Config from './config'
 import { EventEmitter } from 'events'
 import { AccountInfo } from '../types/accounts'
-import {
-  ConnectOptions,
-  PluginInstance
-} from '../types/plugin'
 import ILDCP = require('ilp-protocol-ildcp')
 
 import { create as createLogger } from '../common/log'
@@ -15,8 +10,6 @@ import AccountManager from "./account-manager"
 const log = createLogger('accounts')
 
 export interface AccountEntry {
-  //TODO: remove plugin requirement
-  plugin?: PluginInstance,
   info: AccountInfo
 }
 
@@ -68,17 +61,6 @@ export default class Accounts extends EventEmitter {
   setOwnAddress (newAddress) {
     log.trace('setting ilp address. oldAddress=%s newAddress=%s', this.address, newAddress)
     this.address = newAddress
-  }
-
-  getPlugin (accountId: string) {
-    const account = this.accounts.get(accountId)
-
-    if (!account) {
-      log.error('could not find plugin for account id. accountId=%s', accountId)
-      throw new Error('unknown account id. accountId=' + accountId)
-    }
-
-    return account.plugin
   }
 
   exists (accountId: string) {
