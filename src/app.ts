@@ -89,7 +89,7 @@ export default function createApp (opts?: object, container?: reduct.Injector) {
   const accountManager = deps(AccountManager)
 
   accountManager.registerNewAccountHandler(async (id: string, options: object) => {
-    accounts.add(id, options);
+    accounts.add(id, options)
 
     await middlewareManager.addPlugin(id, accountManager)
 

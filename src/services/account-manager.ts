@@ -1,7 +1,8 @@
 import reduct = require('reduct')
-import Config from "./config";
-import {DataHandler, MoneyHandler} from "../types/plugin"
-import IlpGrpc from 'ilp-grpc'
+import Config from './config'
+import { DataHandler, MoneyHandler } from '../types/plugin'
+
+import { BtpError, BtpStream, BtpServer, BtpMessage, BtpMessageContentType } from 'ilp-protocol-btp3'
 
 const log_1 = require('../../src/common/log')
 const log = log_1.create('account-manager')
@@ -19,7 +20,7 @@ export default class AccountManager {
   protected disconnectHandlers: Map<string, Function>
   protected GRPCServer: any
 
-  constructor(deps: reduct.Injector) {
+  constructor (deps: reduct.Injector) {
 
     this.deps = deps
     this.config = deps(Config)
@@ -31,184 +32,166 @@ export default class AccountManager {
 
   }
 
-  registerNewAccountHandler(handler: Function){
+  registerNewAccountHandler (handler: Function) {
 
-    if(this.newAccountHandler) throw new Error("New plugin handler already exists")
+    if (this.newAccountHandler) throw new Error('New plugin handler already exists')
 
-    log.info("Plugin manager registering new plugin handler.")
+    log.info('Plugin manager registering new plugin handler.')
 
     this.newAccountHandler = handler
 
   }
 
-  deregisterNewAccountHandler(){
+  deregisterNewAccountHandler () {
 
-    log.info("Plugin manager deregistering new plugin handler.")
+    log.info('Plugin manager deregistering new plugin handler.')
 
     this.newAccountHandler = undefined
 
   }
 
-  registerRemoveAccountHandler(handler: Function){
+  registerRemoveAccountHandler (handler: Function) {
 
-    if(this.removeAccountHandler) throw new Error("Remove plugin handler already exists")
+    if (this.removeAccountHandler) throw new Error('Remove plugin handler already exists')
 
-    log.info("Plugin manager registering remove plugin handler.")
+    log.info('Plugin manager registering remove plugin handler.')
 
     this.removeAccountHandler = handler
 
   }
 
-  deregisterRemoveAccountHandler(){
+  deregisterRemoveAccountHandler () {
 
-    log.info("Plugin manager deregistering removing plugin handler.")
+    log.info('Plugin manager deregistering removing plugin handler.')
 
     this.removeAccountHandler = undefined
 
   }
 
-  registerDataHandler(accountId: string, handler: DataHandler){
+  registerDataHandler (accountId: string, handler: DataHandler) {
 
-    if(this.dataHandlers.get(accountId)) throw new Error("Data handler already exists for account: " + accountId)
+    if (this.dataHandlers.get(accountId)) throw new Error('Data handler already exists for account: ' + accountId)
 
     this.dataHandlers.set(accountId, handler)
 
   }
 
-  deregisterDataHandler(accountId: string){
+  deregisterDataHandler (accountId: string) {
 
     this.dataHandlers.delete(accountId)
 
   }
 
-  registerMoneyHandler(accountId: string, handler: MoneyHandler){
+  registerMoneyHandler (accountId: string, handler: MoneyHandler) {
 
-    if(this.moneyHandlers.get(accountId)) throw new Error("Money handler already exists for account: " + accountId)
+    if (this.moneyHandlers.get(accountId)) throw new Error('Money handler already exists for account: ' + accountId)
 
     this.moneyHandlers.set(accountId, handler)
 
   }
 
-  deregisterMoneyHandler(accountId: string){
+  deregisterMoneyHandler (accountId: string) {
 
     this.moneyHandlers.delete(accountId)
 
   }
 
-  registerConnectHandler(accountId: string, handler: Function){
+  registerConnectHandler (accountId: string, handler: Function) {
 
-    if(this.connectHandlers.get(accountId)) throw new Error("Connect handler already exists for account: " + accountId)
+    if (this.connectHandlers.get(accountId)) throw new Error('Connect handler already exists for account: ' + accountId)
 
     this.connectHandlers.set(accountId, handler)
 
   }
 
-  deregisterConnectHandler(accountId: string){
+  deregisterConnectHandler (accountId: string) {
 
     this.connectHandlers.delete(accountId)
 
   }
 
-  registerDisconnectHandler(accountId: string, handler: Function){
+  registerDisconnectHandler (accountId: string, handler: Function) {
 
-    if(this.disconnectHandlers.get(accountId)) throw new Error("Disconnect handler already exists for account: " + accountId)
+    if (this.disconnectHandlers.get(accountId)) throw new Error('Disconnect handler already exists for account: ' + accountId)
 
     this.disconnectHandlers.set(accountId, handler)
 
   }
 
-  deregisterDisonnectHandler(accountId: string){
+  deregisterDisonnectHandler (accountId: string) {
 
     this.disconnectHandlers.delete(accountId)
 
   }
 
-  isConnected(accountId: string){
-    return this.accountIsConnected.get(accountId);
+  isConnected (accountId: string) {
+    return this.accountIsConnected.get(accountId)
   }
 
-  async sendData(data: Buffer, accountId: string): Promise<Buffer>{
+  async sendData (data: Buffer, accountId: string): Promise<Buffer> {
 
-    return await this.GRPCServer.sendData(data, accountId)
+    return this.GRPCServer.sendData(data, accountId)
 
   }
 
-  async sendMoney(data: Buffer, accountId: string): Promise<Buffer>{
+  async sendMoney (data: Buffer, accountId: string): Promise<Buffer> {
 
     return Promise.resolve(Buffer.from('to do'))
 
   }
 
-  async listen() {
+  async listen () {
 
     const {
       grpcServerHost = '127.0.0.1',
       grpcServerPort = 5505
     } = this.config
 
-    log.info('grpc server listening. host=%s port=%s', grpcServerHost, grpcServerPort)
-
-    this.GRPCServer = new IlpGrpc({
-      listener: {
-        port: grpcServerPort || 5505,
-        secret: ''
-      },
-      dataHandler: (from: string, data: Buffer) => {
-
-        let handler = this.dataHandlers.get(from);
-
-        if(!handler) throw new Error("No handler for account: ")
-
-        return handler(data)
-
-      },
-      addAccountHandler: this.newAccountHandler,
-      removeAccountHandler: (id: string) => {
-
-        this.accountIsConnected.delete(id)
-        this.dataHandlers.delete(id)
-        this.moneyHandlers.delete(id)
-        this.connectHandlers.delete(id)
-        this.disconnectHandlers.delete(id)
-
-        if(this.removeAccountHandler){
-          this.removeAccountHandler(id)
-        }
-
-      },
-      connectionChangeHandler: (accountId: string, isConnected: boolean) => {
-
-        this.accountIsConnected.set(accountId, isConnected);
-
-        if(isConnected){
-          let connectHandler = this.connectHandlers.get(accountId)
-
-          if(!connectHandler) throw new Error("There is no connect handler for account " + accountId)
-
-          connectHandler()
-        }
-        else{
-
-          let disconnectHandler = this.disconnectHandlers.get(accountId)
-          if(disconnectHandler) disconnectHandler()
-
-        }
-
-      }
+    const server = new BtpServer({}, {
+      authenticate: () => Promise.resolve({ account: 'alice' })
     })
 
-    await this.GRPCServer.connect()
+    server.on('connection', (stream: BtpStream) => {
 
+      console.log(`CONNECTION: state=${stream.state}`)
+
+      const { accountId, accountInfo } = stream
+
+      if (this.newAccountHandler) {
+        this.newAccountHandler(accountId, accountInfo)
+      }
+
+      stream.on('request', (message: BtpMessage, replyCallback: (reply: BtpMessage | BtpError | Promise<BtpMessage | BtpError>) => void) => {
+        replyCallback(new Promise(async (respond) => {
+          const handler = this.dataHandlers.get(accountId)
+          respond({
+            protocol: 'ilp',
+            contentType: BtpMessageContentType.ApplicationOctetStream,
+            // payload:  await handler(BtpMessage.payload)
+          })
+        }))
+      })
+
+      stream.on('error', (error) => console.log(error))
+
+      stream.on('cancelled', (error) => console.log('cancelled', error))
+
+    })
+
+    server.on('listening', () => {
+      log.info('grpc server listening. host=%s port=%s', grpcServerHost, grpcServerPort)
+    })
+
+    await server.listen({
+      host: '0.0.0.0',
+      port: 5001
+    })
   }
 
-  shutdown(){
+  shutdown () {
 
-    log.info("shutting down")
-
+    log.info('shutting down')
 
   }
-
 
 }
-
-
