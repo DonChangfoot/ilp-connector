@@ -1,5 +1,7 @@
 'use strict'
 
+const {deserializeIlpPacket} = require("ilp-packet");
+
 const assert = require('assert')
 const sinon = require('sinon')
 const { cloneDeep } = require('lodash')
@@ -7,7 +9,7 @@ const IlpPacket = require('ilp-packet')
 const appHelper = require('./helpers/app')
 const logHelper = require('./helpers/log')
 const logger = require('../src/common/log')
-const { serializeCcpRouteUpdateRequest } = require('ilp-protocol-ccp')
+const { serializeCcpRouteUpdateRequest,  deserializeCcpResponse } = require('ilp-protocol-ccp')
 
 const START_DATE = 1434412800000 // June 16, 2015 00:00:00 GMT
 
@@ -31,12 +33,17 @@ describe('AdminApi', function () {
     appHelper.create(this)
     this.clock = sinon.useFakeTimers(START_DATE)
 
-    await this.middlewareManager.setup()
-    await this.accounts.connect()
     const testAccounts = ['test.cad-ledger', 'test.usd-ledger', 'test.eur-ledger', 'test.cny-ledger']
     for (let accountId of testAccounts) {
-      this.routeBroadcaster.add(accountId)
-      this.accounts.getPlugin(accountId)._dataHandler(serializeCcpRouteUpdateRequest({
+
+      await this.accountManager.newAccountHandler(accountId, this.accountData[accountId])
+      //have to do this manually as there no client that is actually going to connect to server for now.
+      this.accountManager.accountIsConnected.set(accountId, true)
+      this.accountManager.connectHandlers.get(accountId)()
+
+      let handler = this.accountManager.dataHandlers.get(accountId)
+
+      await handler(serializeCcpRouteUpdateRequest({
         speaker: accountId,
         routingTableId: 'b38e6e41-71a0-4088-baed-d2f09caa18ee',
         currentEpochIndex: 1,
@@ -58,8 +65,6 @@ describe('AdminApi', function () {
   })
 
   beforeEach(async function () {
-    this.mockPlugin1 = this.accounts.getPlugin('test.usd-ledger')
-    this.mockPlugin2 = this.accounts.getPlugin('test.eur-ledger')
 
     const preparePacket = IlpPacket.serializeIlpPrepare({
       amount: '100',
@@ -73,8 +78,8 @@ describe('AdminApi', function () {
       data: Buffer.alloc(0)
     })
 
-    const stub = sinon.stub(this.mockPlugin2, 'sendData').resolves(fulfillPacket)
-    const result = await this.mockPlugin1._dataHandler(preparePacket)
+    const stub = sinon.stub(this.accountManager, 'sendData').resolves(fulfillPacket)
+    const result = await this.accountManager.dataHandlers.get('test.usd-ledger')(preparePacket)
     assert.equal(result.toString('hex'), fulfillPacket.toString('hex'))
     stub.restore()
   })
@@ -220,22 +225,18 @@ describe('AdminApi', function () {
           'test.cad-ledger': {
             info: Object.assign({}, this.accountData['test.cad-ledger'], { options: undefined }),
             connected: true,
-            adminInfo: true
           },
           'test.usd-ledger': {
             info: Object.assign({}, this.accountData['test.usd-ledger'], { options: undefined }),
             connected: true,
-            adminInfo: true
           },
           'test.eur-ledger': {
             info: Object.assign({}, this.accountData['test.eur-ledger'], { options: undefined }),
             connected: true,
-            adminInfo: true
           },
           'test.cny-ledger': {
             info: Object.assign({}, this.accountData['test.cny-ledger'], { options: undefined }),
             connected: true,
-            adminInfo: true
           }
         }
       })
@@ -453,7 +454,7 @@ describe('AdminApi', function () {
     })
 
     it('returns an alert when a peer returns "maximum balance exceeded"', async function () {
-      sinon.stub(this.mockPlugin2, 'sendData').resolves(IlpPacket.serializeIlpReject({
+      sinon.stub(this.accountManager, 'sendData').resolves(IlpPacket.serializeIlpReject({
         code: 'T04',
         triggeredBy: 'test.foo',
         message: 'exceeded maximum balance.',
@@ -468,7 +469,7 @@ describe('AdminApi', function () {
 
       for (let i = 0; i < 3; i++) {
         preparePacket.data = Buffer.from(i.toString())
-        await this.mockPlugin1._dataHandler(IlpPacket.serializeIlpPrepare(preparePacket))
+        await this.accountManager.dataHandlers.get('test.usd-ledger')(IlpPacket.serializeIlpPrepare(preparePacket))
       }
       const res = await this.adminApi.getAlerts()
       assert.deepEqual(res, {
@@ -505,33 +506,4 @@ describe('AdminApi', function () {
     })
   })
 
-  describe('plugin admin api', function () {
-    describe('getAccountAdminInfo', function () {
-      it('returns result of getAdminInfo', async function () {
-        const res = await this.adminApi.getAccountAdminInfo('/accounts/test.usd-ledger')
-        assert.deepEqual(res, {
-          account: 'test.usd-ledger',
-          plugin: 'ilp-plugin-mock',
-          info: {
-            foo: 'bar'
-          }
-        })
-      })
-    })
-
-    describe('sendAccountAdminInfo', function () {
-      it('passes the object into sendAdminInfo', async function () {
-        const res = await this.adminApi.sendAccountAdminInfo('/accounts/test.usd-ledger', { foo: 'bar' })
-        assert.deepEqual(res, {
-          account: 'test.usd-ledger',
-          plugin: 'ilp-plugin-mock',
-          result: {
-            foo: {
-              foo: 'bar'
-            }
-          }
-        })
-      })
-    })
-  })
 })

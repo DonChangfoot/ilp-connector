@@ -67,15 +67,18 @@ describe('RouteBroadcaster', function () {
     process.env.CONNECTOR_PEERS = JSON.stringify(['test.cad-ledger', 'test.usd-ledger'])
     process.env.CONNECTOR_ROUTING_SECRET = 'c8rEzjyVRS7gGB3xLuy/GBDDKzZDPVJor/w6IA6pMfo='
     appHelper.create(this)
-    this.routeBroadcaster.reloadLocalRoutes()
-    await this.middlewareManager.setup()
-    await this.accounts.connect()
 
     const testAccounts = ['test.cad-ledger', 'test.usd-ledger', 'test.eur-ledger']
+    const accounts = JSON.parse(process.env.CONNECTOR_ACCOUNTS)
     for (let accountId of testAccounts) {
-      await this.accounts.getPlugin(accountId).connect()
-      this.routeBroadcaster.add(accountId)
-      this.accounts.getPlugin(accountId)._dataHandler(serializeCcpRouteUpdateRequest({
+
+      await this.accountManager.newAccountHandler(accountId,accounts[accountId])
+
+      //have to do this manually as there no client that is actually going to connect to server for now.
+      this.accountManager.accountIsConnected.set(accountId, true)
+      this.accountManager.connectHandlers.get(accountId)()
+
+      this.accountManager.dataHandlers.get(accountId)(serializeCcpRouteUpdateRequest({
         speaker: accountId,
         routingTableId: 'b38e6e41-71a0-4088-baed-d2f09caa18ee',
         currentEpochIndex: 1,
@@ -107,10 +110,15 @@ describe('RouteBroadcaster', function () {
       // For the other ledger we disable sending and receiving routes
       accounts['test.cad-ledger'].sendRoutes = false
       accounts['test.cad-ledger'].receiveRoutes = false
-      process.env.CONNECTOR_ACCOUNTS = JSON.stringify(accounts)
+
       appHelper.create(this)
-      await this.accounts.connect()
-      Object.keys(accounts).forEach(key => this.routeBroadcaster.add(key))
+      const testAccounts = ['test.cad-ledger', 'test.usd-ledger', 'test.eur-ledger']
+      for (let accountId of testAccounts) {
+        await this.accountManager.newAccountHandler(accountId, accounts[accountId])
+        //have to do this manually as there no client that is actually going to connect to server for now.
+        this.accountManager.accountIsConnected.set(accountId, true)
+        this.accountManager.connectHandlers.get(accountId)()
+      }
 
       // By default, everything should be enabled
       assert.ok(this.routeBroadcaster.peers.get('test.eur-ledger').ccpSender)
@@ -141,6 +149,16 @@ describe('RouteBroadcaster', function () {
         peerId: 'test.usd-ledger'
       }])
       appHelper.create(this)
+      const accounts = JSON.parse(process.env.CONNECTOR_ACCOUNTS)
+      const testAccounts = ['test.cad-ledger', 'test.usd-ledger', 'test.eur-ledger']
+      for (let accountId of testAccounts) {
+
+        await this.accountManager.newAccountHandler(accountId, accounts[accountId])
+
+        //have to do this manually as there no client that is actually going to connect to server for now.
+        this.accountManager.accountIsConnected.set(accountId, true)
+        this.accountManager.connectHandlers.get(accountId)()
+      }
       this.routeBroadcaster.reloadLocalRoutes()
 
       assert.equal(this.routingTable.resolve('test.cad-ledger.mary').nextHop, 'test.usd-ledger')
@@ -192,9 +210,9 @@ describe('RouteBroadcaster', function () {
     ]
 
     it('sends the combined routes to all adjacent connectors', async function () {
-      const pluginABroadcastSpy = sinon.stub(this.accounts.getPlugin(ledgerA), 'sendData')
+      const pluginABroadcastSpy = sinon.stub(this.accountManager, 'sendData')
         .resolves(Buffer.from('{}', 'ascii'))
-      const pluginBBroadcastSpy = sinon.stub(this.accounts.getPlugin(ledgerB), 'sendData')
+      const pluginBBroadcastSpy = sinon.stub(this.accountManager, 'sendData')
         .resolves(Buffer.from('{}', 'ascii'))
 
       this.routeBroadcaster.forwardingRoutingTable.routingTableId = '3b069822-a754-4e44-8a60-0f9f7084144d'
@@ -232,9 +250,9 @@ describe('RouteBroadcaster', function () {
     })
 
     it('only sends the latest version of a route', async function () {
-      const pluginABroadcastSpy = sinon.stub(this.accounts.getPlugin(ledgerA), 'sendData')
+      const pluginABroadcastSpy = sinon.stub(this.accountManager, 'sendData')
         .resolves(Buffer.from('{}', 'ascii'))
-      const pluginBBroadcastSpy = sinon.stub(this.accounts.getPlugin(ledgerB), 'sendData')
+      const pluginBBroadcastSpy = sinon.stub(this.accountManager, 'sendData')
         .resolves(Buffer.from('{}', 'ascii'))
 
       this.routeBroadcaster.forwardingRoutingTable.routingTableId = '3b069822-a754-4e44-8a60-0f9f7084144d'

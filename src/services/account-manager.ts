@@ -133,6 +133,12 @@ export default class AccountManager {
 
   }
 
+  async sendMoney(data: Buffer, accountId: string): Promise<Buffer>{
+
+    return Promise.resolve(Buffer.from('to do'))
+
+  }
+
   async listen() {
 
     const {
@@ -198,6 +204,7 @@ export default class AccountManager {
   shutdown(){
 
     log.info("shutting down")
+
 
   }
 

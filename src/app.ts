@@ -37,33 +37,6 @@ function listen (
       process.exit(1)
     }
 
-
-    accountManager.registerNewAccountHandler(async (id: string, options: object) => {
-
-      accounts.add(id, options);
-
-      await middlewareManager.addPlugin(id, accountManager)
-
-      await accounts.loadIlpAddress()
-
-      routeBroadcaster.track(id)
-
-      routeBroadcaster.reloadLocalRoutes()
-
-    })
-
-    accountManager.registerRemoveAccountHandler(async (id: string) => {
-
-      middlewareManager.removePlugin(id, accountManager)
-
-      routeBroadcaster.untrack(id)
-
-      accounts.remove(id)
-
-      routeBroadcaster.reloadLocalRoutes()
-
-    })
-
     accountManager.listen()
 
     await middlewareManager.startup()
@@ -114,6 +87,29 @@ export default function createApp (opts?: object, container?: reduct.Injector) {
   const middlewareManager = deps(MiddlewareManager)
   const adminApi = deps(AdminApi)
   const accountManager = deps(AccountManager)
+
+  accountManager.registerNewAccountHandler(async (id: string, options: object) => {
+    accounts.add(id, options);
+
+    await middlewareManager.addPlugin(id, accountManager)
+
+    await accounts.loadIlpAddress()
+
+    routeBroadcaster.track(id)
+
+  })
+
+  accountManager.registerRemoveAccountHandler(async (id: string) => {
+
+    middlewareManager.removePlugin(id, accountManager)
+
+    routeBroadcaster.untrack(id)
+
+    accounts.remove(id)
+
+    routeBroadcaster.reloadLocalRoutes()
+
+  })
 
   return {
     config,

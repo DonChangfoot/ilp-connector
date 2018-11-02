@@ -13,6 +13,7 @@ const AdminApi = require('../../src/services/admin-api').default
 const CcpController = require('../../src/controllers/ccp').default
 const Store = require('../../src/services/store').default
 const ratesResponse = require('../data/fxRates.json')
+const AccountManager = require("../../src/services/account-manager").default;
 
 const createApp = require('../../src').createApp
 
@@ -51,4 +52,5 @@ exports.create = function (context, opts) {
   context.adminApi = deps(AdminApi)
   context.ccpController = deps(CcpController)
   context.store = deps(Store)
+  context.accountManager = deps(AccountManager)
 }

@@ -24,16 +24,18 @@ describe('Subscriptions', function () {
   logHelper(logger)
 
   beforeEach(async function () {
+    const accountCredentials = Object.assign({}, require('./data/accountCredentials.json'))
     appHelper.create(this)
     await this.backend.connect()
-    await this.accounts.connect()
-    await this.routeBroadcaster.reloadLocalRoutes()
-    await this.middlewareManager.setup()
 
     const testAccounts = ['test.cad-ledger', 'test.usd-ledger', 'test.eur-ledger', 'test.cny-ledger']
     for (let accountId of testAccounts) {
-      this.routeBroadcaster.add(accountId)
-      await this.accounts.getPlugin(accountId)._dataHandler(serializeCcpRouteUpdateRequest({
+      await this.accountManager.newAccountHandler(accountId, accountCredentials[accountId])
+      //have to do this manually as there no client that is actually going to connect to server for now.
+      this.accountManager.accountIsConnected.set(accountId, true)
+      this.accountManager.connectHandlers.get(accountId)()
+
+      await this.accountManager.dataHandlers.get(accountId)(serializeCcpRouteUpdateRequest({
         speaker: accountId,
         routingTableId: 'c951b674-c6f5-42ca-83a3-39a8d4e293b3',
         currentEpochIndex: 1,
@@ -126,11 +128,10 @@ describe('Subscriptions', function () {
       fulfillment: Buffer.from('HS8e5Ew02XKAglyus2dh2Ohabuqmy3HDM8EXMLz22ok', 'base64'),
       data: Buffer.from('ABAB', 'base64')
     }
-    const sendStub = sinon.stub(this.accounts.getPlugin(destinationAccount), 'sendData')
+    const sendStub = sinon.stub(this.accountManager, 'sendData')
       .resolves(IlpPacket.serializeIlpFulfill(ilpFulfill))
 
-    const result = await this.accounts.getPlugin(sourceAccount)
-      ._dataHandler(IlpPacket.serializeIlpPrepare({
+    const result = await this.accountManager.dataHandlers.get(sourceAccount)(IlpPacket.serializeIlpPrepare({
         amount: sourceAmount,
         executionCondition,
         expiresAt,
@@ -162,14 +163,13 @@ describe('Subscriptions', function () {
       fulfillment: Buffer.from('HS8e5Ew02XKAglyus2dh2Ohabuqmy3HDM8EXMLz22ok', 'base64'),
       data: Buffer.from('ABAB', 'base64')
     }
-    sinon.stub(this.accounts.getPlugin(destinationAccount), 'sendData')
+    sinon.stub(this.accountManager, 'sendData')
       .resolves(IlpPacket.serializeIlpFulfill(ilpFulfill))
-    sinon.stub(this.accounts.getPlugin(destinationAccount), 'sendMoney')
+    sinon.stub(this.accountManager, 'sendMoney')
       .resolves()
     const backendSpy = sinon.spy(this.backend, 'submitPayment')
 
-    await this.accounts.getPlugin(sourceAccount)
-      ._dataHandler(IlpPacket.serializeIlpPrepare({
+    await this.accountManager.dataHandlers.get(sourceAccount)(IlpPacket.serializeIlpPrepare({
         amount: sourceAmount,
         executionCondition,
         expiresAt,
