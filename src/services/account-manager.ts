@@ -6,6 +6,7 @@ import { BtpError, BtpStream, BtpServer, BtpMessage, BtpMessageContentType } fro
 
 const log_1 = require('../../src/common/log')
 const log = log_1.create('account-manager')
+import { createLogger } from 'ilp-module-loader'
 
 export default class AccountManager {
 
@@ -144,10 +145,11 @@ export default class AccountManager {
 
     const {
       grpcServerHost = '127.0.0.1',
-      grpcServerPort = 5505
+      grpcServerPort = 5506
     } = this.config
 
     const server = new BtpServer({}, {
+      log: createLogger('btp-server'),
       authenticate: () => Promise.resolve({ account: 'alice' })
     })
 
@@ -163,12 +165,14 @@ export default class AccountManager {
 
       stream.on('request', (message: BtpMessage, replyCallback: (reply: BtpMessage | BtpError | Promise<BtpMessage | BtpError>) => void) => {
         replyCallback(new Promise(async (respond) => {
-          const handler = this.dataHandlers.get(accountId)
-          respond({
-            protocol: 'ilp',
-            contentType: BtpMessageContentType.ApplicationOctetStream,
-            // payload:  await handler(BtpMessage.payload)
-          })
+          const handler = this.dataHandlers.get(accountId || '')
+          if (handler) {
+            respond({
+              protocol: 'ilp',
+              contentType: BtpMessageContentType.ApplicationOctetStream,
+              payload:  await handler(message.payload)
+            })
+          }
         }))
       })
 

@@ -30,13 +30,13 @@ describe('Account Manager', function () {
     sinon.stub(this.accountManager, 'sendData').resolves(Buffer.alloc(0))
 
     await this.accountManager.newAccountHandler('test.usd-ledger', {
-      "relation": "peer",
-      "assetCode": "USD",
-      "assetScale": 4,
-      "plugin": "ilp-plugin-mock",
-      "options": {}
+      'relation': 'peer',
+      'assetCode': 'USD',
+      'assetScale': 4,
+      'plugin': 'ilp-plugin-mock',
+      'options': {}
     })
-    //have to do this manually as there no client that is actually going to connect to server for now.
+    // have to do this manually as there no client that is actually going to connect to server for now.
     this.accountManager.accountIsConnected.set('test.usd-ledger', true)
     this.accountManager.connectHandlers.get('test.usd-ledger')()
     this.clock = sinon.useFakeTimers(START_DATE)
@@ -77,7 +77,7 @@ describe('Account Manager', function () {
         plugin: 'ilp-plugin-mock',
         options: {}
       })
-      //have to do this manually as there no client that is actually going to connect to server for now.
+      // have to do this manually as there no client that is actually going to connect to server for now.
       this.accountManager.accountIsConnected.set('test.jpy-ledger', true)
       this.accountManager.connectHandlers.get('test.jpy-ledger')()
       assert.equal(this.accounts.accounts.size, 2)
@@ -119,7 +119,7 @@ describe('Account Manager', function () {
           prefix: 'eur-ledger-2'
         }
       })
-      //have to do this manually as there no client that is actually going to connect to server for now.
+      // have to do this manually as there no client that is actually going to connect to server for now.
       this.accountManager.accountIsConnected.set('test.eur-ledger-2', true)
       this.accountManager.connectHandlers.get('test.eur-ledger-2')()
 
@@ -130,17 +130,17 @@ describe('Account Manager', function () {
   describe('remove account handler', function () {
     beforeEach(async function () {
       await this.accountManager.newAccountHandler('test.jpy-ledger', {
-          relation: 'peer',
-          assetCode: 'JPY',
-          assetScale: 4,
-          plugin: 'ilp-plugin-mock',
-          options: {}
+        relation: 'peer',
+        assetCode: 'JPY',
+        assetScale: 4,
+        plugin: 'ilp-plugin-mock',
+        options: {}
       })
-      //have to do this manually as there no client that is actually going to connect to server for now.
+      // have to do this manually as there no client that is actually going to connect to server for now.
       this.accountManager.accountIsConnected.set('test.jpy-ledger', true)
       this.accountManager.connectHandlers.get('test.jpy-ledger')()
 
-      await this.accountManager.dataHandlers.get("test.jpy-ledger")(serializeCcpRouteUpdateRequest({
+      await this.accountManager.dataHandlers.get('test.jpy-ledger')(serializeCcpRouteUpdateRequest({
         speaker: 'test.jpy-ledger',
         routingTableId: 'b38e6e41-71a0-4088-baed-d2f09caa18ee',
         currentEpochIndex: 0,

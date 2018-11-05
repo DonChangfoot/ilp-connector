@@ -12,7 +12,7 @@ import Store from './services/store'
 import MiddlewareManager from './services/middleware-manager'
 import AdminApi from './services/admin-api'
 import * as Prometheus from 'prom-client'
-import AccountManager from "./services/account-manager";
+import AccountManager from './services/account-manager'
 
 function listen (
   config: Config,
@@ -37,7 +37,7 @@ function listen (
       process.exit(1)
     }
 
-    accountManager.listen()
+    await accountManager.listen()
 
     await middlewareManager.startup()
 
@@ -49,7 +49,7 @@ function listen (
   })().catch((err) => log.error(err))
 }
 
-function shutdown (
+async function shutdown (
   accountManager: AccountManager,
   routeBroadcaster: RouteBroadcaster
 ) {

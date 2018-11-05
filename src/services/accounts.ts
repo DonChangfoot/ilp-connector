@@ -94,7 +94,7 @@ export default class Accounts extends EventEmitter {
     // creds = cloneDeep(creds)
 
     try {
-      this.config.validateAccount(accountId, creds)
+      // this.config.validateAccount(accountId, creds)
     } catch (err) {
       if (err.name === 'InvalidJsonBodyError') {
         log.error('validation error in account config. id=%s', accountId)
