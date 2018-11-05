@@ -13,6 +13,7 @@ export default class AccountManager {
   protected deps: reduct.Injector
   protected config: Config
   protected accountIsConnected: Map<string, any>
+  protected streamMap: Map<string, BtpStream>
   protected newAccountHandler?: Function
   protected removeAccountHandler?: Function
   protected dataHandlers: Map<string, DataHandler>
@@ -26,11 +27,11 @@ export default class AccountManager {
     this.deps = deps
     this.config = deps(Config)
     this.accountIsConnected = new Map()
+    this.streamMap = new Map()
     this.dataHandlers = new Map()
     this.moneyHandlers = new Map()
     this.connectHandlers = new Map()
     this.disconnectHandlers = new Map()
-
   }
 
   registerNewAccountHandler (handler: Function) {
@@ -129,10 +130,19 @@ export default class AccountManager {
     return this.accountIsConnected.get(accountId)
   }
 
+  // Wrapping in some function that converts from BTP to ILP for now
   async sendData (data: Buffer, accountId: string): Promise<Buffer> {
-
-    return this.GRPCServer.sendData(data, accountId)
-
+    return new Promise<Buffer>(async (resolve, reject) => {
+      const handler = this.streamMap.get(accountId || '')
+      if (handler) {
+        let response = await handler.request({
+          protocol: 'ilp',
+          contentType: BtpMessageContentType.ApplicationOctetStream,
+          payload: data
+        })
+        resolve(response.payload)
+      }
+    })
   }
 
   async sendMoney (data: Buffer, accountId: string): Promise<Buffer> {
@@ -155,13 +165,13 @@ export default class AccountManager {
 
     server.on('connection', (stream: BtpStream) => {
 
-      console.log(`CONNECTION: state=${stream.state}`)
-
       const { accountId, accountInfo } = stream
 
       if (this.newAccountHandler) {
         this.newAccountHandler(accountId, accountInfo)
       }
+
+      this.streamMap.set(accountId || '', stream)
 
       stream.on('request', (message: BtpMessage, replyCallback: (reply: BtpMessage | BtpError | Promise<BtpMessage | BtpError>) => void) => {
         replyCallback(new Promise(async (respond) => {
