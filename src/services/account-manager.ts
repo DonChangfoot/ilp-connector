@@ -178,7 +178,11 @@ export default class AccountManager {
 
       stream.on('error', (error) => console.log(error))
 
-      stream.on('cancelled', (error) => console.log('cancelled', error))
+      stream.on('cancelled', () => {
+        if (this.removeAccountHandler) {
+          this.removeAccountHandler(accountId)
+        }
+      })
 
     })
 
@@ -187,8 +191,8 @@ export default class AccountManager {
     })
 
     await server.listen({
-      host: '0.0.0.0',
-      port: 5001
+      host: grpcServerHost,
+      port: grpcServerPort
     })
   }
 
