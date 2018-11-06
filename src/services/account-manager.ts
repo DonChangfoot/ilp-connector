@@ -20,7 +20,6 @@ export default class AccountManager {
   protected moneyHandlers: Map<string, MoneyHandler>
   protected connectHandlers: Map<string, Function>
   protected disconnectHandlers: Map<string, Function>
-  protected GRPCServer: any
 
   constructor (deps: reduct.Injector) {
 
@@ -159,8 +158,7 @@ export default class AccountManager {
     } = this.config
 
     const server = new BtpServer({}, {
-      log: createLogger('btp-server'),
-      authenticate: () => Promise.resolve({ account: 'alice' })
+      log: createLogger('btp-server')
     })
 
     server.on('connection', (stream: BtpStream) => {
