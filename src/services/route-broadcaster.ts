@@ -25,7 +25,7 @@ import {
   CcpRouteControlRequest,
   CcpRouteUpdateRequest
 } from 'ilp-protocol-ccp'
-import AccountManager from "./account-manager";
+import AccountManager from './account-manager'
 const { BadRequestError } = Errors
 
 export default class RouteBroadcaster {
@@ -98,8 +98,8 @@ export default class RouteBroadcaster {
       this.remove(accountId)
     }
 
-    this.accountManager.registerConnectHandler(accountId, connectHandler);
-    this.accountManager.registerDisconnectHandler(accountId, disconnectHandler);
+    this.accountManager.registerConnectHandler(accountId, connectHandler)
+    this.accountManager.registerDisconnectHandler(accountId, disconnectHandler)
 
     this.untrackCallbacks.set(accountId, () => {
       this.accountManager.deregisterConnectHandler(accountId)
@@ -198,7 +198,9 @@ export default class RouteBroadcaster {
       }
     }
     if (this.getAccountRelation(accountId) === 'child') {
-      this.updatePrefix(this.accounts.getChildAddress(accountId))
+      const childAddress = this.accounts.getChildAddress(accountId)
+      this.localRoutes.delete(childAddress)
+      this.updatePrefix(childAddress)
     }
   }
 
@@ -497,7 +499,12 @@ export default class RouteBroadcaster {
         epoch
       }
 
-      this.forwardingRoutingTable.insert(prefix, routeUpdate)
+      // this.forwardingRoutingTable.insert(prefix, routeUpdate)
+      if (typeof newNextHop === 'string') {
+        this.forwardingRoutingTable.insert(prefix, routeUpdate)
+      } else {
+        this.forwardingRoutingTable.delete(prefix)
+      }
 
       log.trace('logging route update. update=%j', routeUpdate)
 

@@ -97,6 +97,8 @@ export default function createApp (opts?: object, container?: reduct.Injector) {
 
     routeBroadcaster.track(id)
 
+    routeBroadcaster.reloadLocalRoutes()
+
   })
 
   accountManager.registerRemoveAccountHandler(async (id: string) => {

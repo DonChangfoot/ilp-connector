@@ -5,6 +5,8 @@ function main () {
   const IlpConnector = require('../')
   this.connector = IlpConnector.createApp({
     ilpAddress: 'test.quickstart',
+    adminApiPort: 7769,
+    adminApi: true,
     accounts: {
     },
     backend: 'one-to-one',
