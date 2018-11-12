@@ -126,7 +126,7 @@ export default class AccountManager {
   }
 
   isConnected (accountId: string) {
-    return this.accountIsConnected.get(accountId)
+    return true// this.accountIsConnected.get(accountId)
   }
 
   // Wrapping in some function that converts from BTP to ILP for now

@@ -11,7 +11,10 @@ function main () {
     },
     backend: 'one-to-one',
     spread: 0,
-    storePath: './data'
+    storePath: './data',
+    adminApi: true,
+    adminApiPort: 7769,
+    adminApiHost: 'localhost'
   })
   let shuttingDown = false
   process.on('SIGINT', async () => {
