@@ -12,7 +12,7 @@ import Store from './services/store'
 import MiddlewareManager from './services/middleware-manager'
 import AdminApi from './services/admin-api'
 import * as Prometheus from 'prom-client'
-import AccountManager from './services/account-manager'
+import {AccountServiceInstance} from "./types/account-service"
 
 function listen (
   config: Config,
@@ -23,7 +23,6 @@ function listen (
   routeBroadcaster: RouteBroadcaster,
   middlewareManager: MiddlewareManager,
   adminApi: AdminApi,
-  accountManager: AccountManager
 ) {
   // Start a coroutine that connects to the backend and
   // sets up the account manager that will start a grpc server to communicate with accounts
@@ -37,9 +36,7 @@ function listen (
       process.exit(1)
     }
 
-    await accountManager.listen()
-
-    await middlewareManager.startup()
+    await accounts.startup()
 
     if (config.collectDefaultMetrics) {
       Prometheus.collectDefaultMetrics()
@@ -50,11 +47,10 @@ function listen (
 }
 
 async function shutdown (
-  accountManager: AccountManager,
+  accounts: Accounts,
   routeBroadcaster: RouteBroadcaster
 ) {
   routeBroadcaster.stop()
-  accountManager.shutdown()
 }
 
 export default function createApp (opts?: object, container?: reduct.Injector) {
@@ -86,36 +82,33 @@ export default function createApp (opts?: object, container?: reduct.Injector) {
   const store = deps(Store)
   const middlewareManager = deps(MiddlewareManager)
   const adminApi = deps(AdminApi)
-  const accountManager = deps(AccountManager)
 
-  accountManager.registerNewAccountHandler(async (id: string, options: object) => {
-    accounts.add(id, options)
+  const newAccountHandler =  async  (id: string, accountService: AccountServiceInstance) => {
+    await middlewareManager.addAccountService(id, accountService)
 
-    await middlewareManager.addPlugin(id, accountManager)
+    middlewareManager.startup(id)
 
     await accounts.loadIlpAddress()
 
     routeBroadcaster.track(id)
 
     routeBroadcaster.reloadLocalRoutes()
+  }
 
-  })
-
-  accountManager.registerRemoveAccountHandler(async (id: string) => {
-
-    middlewareManager.removePlugin(id, accountManager)
+  const removeAccountHandler = (id: string) => {
+    middlewareManager.removeAccountService(id)
 
     routeBroadcaster.untrack(id)
 
-    accounts.remove(id)
-
     routeBroadcaster.reloadLocalRoutes()
+  }
 
-  })
+  accounts.registerNewAccountHandler(newAccountHandler)
+  accounts.registerRemoveAccountHandler(removeAccountHandler)
 
   return {
     config,
-    listen: partial(listen, config, accounts, backend, store, routeBuilder, routeBroadcaster, middlewareManager, adminApi, accountManager),
-    shutdown: partial(shutdown, accountManager, routeBroadcaster)
+    listen: partial(listen, config, accounts, backend, store, routeBuilder, routeBroadcaster, middlewareManager, adminApi),
+    shutdown: partial(shutdown, accounts, routeBroadcaster)
   }
 }

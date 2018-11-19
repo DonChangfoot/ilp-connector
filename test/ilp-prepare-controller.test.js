@@ -506,7 +506,7 @@ describe('IlpPrepareController', function () {
         plugin: 'ilp-plugin-mock',
         options: {}
       })
-      await this.middlewareManager.addPlugin('mock.test3', this.accountManager)
+      await this.middlewareManager.addAccountService('mock.test3', this.accountManager)
       this.accountManager.accountIsConnected.set('mock.test3', true)
       await this.accounts.loadIlpAddress()
       this.routeBroadcaster.track('mock.test3')
@@ -540,7 +540,7 @@ describe('IlpPrepareController', function () {
         plugin: 'ilp-plugin-mock',
         balance: {minimum: '-50', maximum: '100'}
       })
-      await this.middlewareManager.addPlugin('mock.test3', this.accountManager)
+      await this.middlewareManager.addAccountService('mock.test3', this.accountManager)
       this.accountManager.accountIsConnected.set('mock.test3', true)
       this.routingTable.insert('mock.test3', {nextHop: 'mock.test3', path: []})
     })
@@ -645,7 +645,7 @@ describe('IlpPrepareController', function () {
         maxPacketAmount: '100'
       })
       this.routingTable.insert('mock.test3', {nextHop: 'mock.test3', path: []})
-      await this.middlewareManager.addPlugin("mock.test3", this.accountManager)
+      await this.middlewareManager.addAccountService("mock.test3", this.accountManager)
       this.accountManager.accountIsConnected.set("mock.test3", true)
     })
 
@@ -683,7 +683,7 @@ describe('IlpPrepareController', function () {
         rateLimit: {refillCount: 3, capacity: 3}
       })
       this.routingTable.insert('mock.test3', {nextHop: 'mock.test3', path: []})
-      await this.middlewareManager.addPlugin("mock.test3", this.accountManager)
+      await this.middlewareManager.addAccountService("mock.test3", this.accountManager)
       this.accountManager.accountIsConnected.set("mock.test3", true)
     })
 

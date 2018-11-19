@@ -6,7 +6,6 @@ import Config from './config'
 import reduct = require('reduct')
 import * as IlpPacket from 'ilp-packet'
 import { create as createLogger } from '../common/log'
-import AccountManager from "./account-manager"
 const log = createLogger('route-builder')
 const {
   InsufficientTimeoutError,
@@ -16,7 +15,6 @@ const {
 } = IlpPacket.Errors
 
 export default class RouteBuilder {
-  protected accountManager: AccountManager
   protected accounts: Accounts
   protected routingTable: RoutingTable
   protected backend: RateBackend
@@ -26,7 +24,6 @@ export default class RouteBuilder {
 
   constructor (deps: reduct.Injector) {
     this.accounts = deps(Accounts)
-    this.accountManager = deps(AccountManager)
     this.routingTable = deps(RoutingTable)
     this.backend = deps(RateBackend)
     this.config = deps(Config)
@@ -94,7 +91,7 @@ export default class RouteBuilder {
 
     log.trace('determined local rate. rate=%s', rate)
 
-    this._verifyPluginIsConnected(nextHop)
+    this._verifyAccountServiceIsConnected(nextHop)
 
     const nextAmount = new BigNumber(amount).times(rate).integerValue(BigNumber.ROUND_FLOOR)
 
@@ -131,8 +128,8 @@ export default class RouteBuilder {
     return new Date(destinationExpiryTime)
   }
 
-  _verifyPluginIsConnected (account: string) {
-    if (!this.accountManager.isConnected(account)) {
+  _verifyAccountServiceIsConnected (account: string) {
+    if (!this.accounts.getAccountService(account).isConnected()) {
       throw new PeerUnreachableError('no connection to account. account=' + account)
     }
   }

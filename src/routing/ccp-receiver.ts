@@ -1,6 +1,6 @@
 import PrefixMap from './prefix-map'
-import Accounts from '../services/accounts'
-import { BroadcastRoute, IncomingRoute } from '../types/routing'
+import {AccountServiceInstance} from '../types/account-service'
+import { IncomingRoute } from '../types/routing'
 import { create as createLogger, ConnectorLogger } from '../common/log'
 import { Type, deserializeIlpReject } from 'ilp-packet'
 import {
@@ -9,29 +9,16 @@ import {
   Mode,
   serializeCcpRouteControlRequest
 } from 'ilp-protocol-ccp'
-import { PluginInstance } from '../types/plugin'
-import AccountManager from "../services/account-manager";
-
-export interface BroadcastRoutesParams {
-  accounts: Accounts,
-  newRoutes: BroadcastRoute[],
-  routingTableId: string,
-  holdDownTime: number,
-  withdrawnRoutes: { prefix: string, epoch: number }[],
-  fromEpoch: number,
-  toEpoch: number,
-  timeout: number
-}
 
 export interface CcpReceiverOpts {
-  accountManager: AccountManager
+  accountService: AccountServiceInstance
   accountId: string
 }
 
 const ROUTE_CONTROL_RETRY_INTERVAL = 30000
 
 export default class CcpReceiver {
-  private accountManager: AccountManager
+  private accountService: AccountServiceInstance
   private log: ConnectorLogger
   private accountId: string
   private routes: PrefixMap<IncomingRoute>
@@ -48,8 +35,8 @@ export default class CcpReceiver {
    */
   private epoch: number = 0
 
-  constructor ({ accountManager, accountId }: CcpReceiverOpts) {
-    this.accountManager = accountManager
+  constructor ({ accountService, accountId }: CcpReceiverOpts) {
+    this.accountService = accountService
     this.log = createLogger(`ccp-receiver[${accountId}]`)
     this.accountId = accountId
     this.routes = new PrefixMap()
@@ -154,7 +141,7 @@ export default class CcpReceiver {
   }
 
   sendRouteControl = () => {
-    if (!this.accountManager.isConnected(this.accountId)) {
+    if (!this.accountService.isConnected()) {
       this.log.debug('cannot send route control message, plugin not connected (yet).')
       return
     }
@@ -166,7 +153,7 @@ export default class CcpReceiver {
       features: []
     }
 
-    this.accountManager.sendData(serializeCcpRouteControlRequest(routeControl), this.accountId)
+    this.accountService.sendData(serializeCcpRouteControlRequest(routeControl))
       .then(data => {
         if (data[0] === Type.TYPE_ILP_FULFILL) {
           this.log.trace('successfully sent route control message.')

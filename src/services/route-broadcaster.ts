@@ -25,7 +25,6 @@ import {
   CcpRouteControlRequest,
   CcpRouteUpdateRequest
 } from 'ilp-protocol-ccp'
-import AccountManager from './account-manager'
 const { BadRequestError } = Errors
 
 export default class RouteBroadcaster {
@@ -42,14 +41,12 @@ export default class RouteBroadcaster {
   private localRoutes: Map<string, Route>
   private routingSecret: Buffer
   private untrackCallbacks: Map<string, () => void> = new Map()
-  private accountManager: AccountManager
 
   constructor (deps: reduct.Injector) {
     this.deps = deps
     this.localRoutingTable = deps(RoutingTable)
     this.forwardingRoutingTable = deps(ForwardingRoutingTable)
     this.accounts = deps(Accounts)
-    this.accountManager = deps(AccountManager)
     this.config = deps(Config)
 
     if (this.config.routingSecret) {
@@ -84,8 +81,10 @@ export default class RouteBroadcaster {
       return
     }
 
+    const accountService = this.accounts.getAccountService(accountId)
+
     const connectHandler = () => {
-      if (!this.accountManager.isConnected(accountId)) {
+      if (!accountService.isConnected()) {
         // some plugins don't set `isConnected() = true` before emitting the
         // connect event, setImmediate has a good chance of working.
         log.error('(!!!) plugin emitted connect, but then returned false for isConnected, broken plugin. account=%s', accountId)
@@ -98,12 +97,12 @@ export default class RouteBroadcaster {
       this.remove(accountId)
     }
 
-    this.accountManager.registerConnectHandler(accountId, connectHandler)
-    this.accountManager.registerDisconnectHandler(accountId, disconnectHandler)
+    accountService.registerConnectHandler(connectHandler.bind(this))
+    accountService.registerDisconnectHandler(disconnectHandler.bind(this))
 
     this.untrackCallbacks.set(accountId, () => {
-      this.accountManager.deregisterConnectHandler(accountId)
-      this.accountManager.deregisterDisonnectHandler(accountId)
+      accountService.deregisterConnectHandler()
+      accountService.deregisterDisconnectHandler()
     })
 
     this.add(accountId)
@@ -162,7 +161,9 @@ export default class RouteBroadcaster {
       return
     }
 
-    if (this.accountManager.isConnected(accountId)) {
+    const accountService = this.accounts.getAccountService(accountId)
+
+    if (accountService.isConnected()) {
       log.trace('add peer. accountId=%s sendRoutes=%s receiveRoutes=%s', accountId, sendRoutes, receiveRoutes)
       const peer = new Peer({ deps: this.deps, accountId, sendRoutes, receiveRoutes })
       this.peers.set(accountId, peer)

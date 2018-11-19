@@ -1,4 +1,4 @@
-import Accounts from '../services/accounts'
+import {AccountServiceInstance} from '../types/account-service'
 import ForwardingRoutingTable, { RouteUpdate } from '../services/forwarding-routing-table'
 import { BroadcastRoute } from '../types/routing'
 import { create as createLogger, ConnectorLogger } from '../common/log'
@@ -10,22 +10,10 @@ import {
   ModeReverseMap,
   serializeCcpRouteUpdateRequest
 } from 'ilp-protocol-ccp'
-import AccountManager from "../services/account-manager";
-
-export interface BroadcastRoutesParams {
-  accounts: Accounts,
-  newRoutes: BroadcastRoute[],
-  routingTableId: string,
-  holdDownTime: number,
-  withdrawnRoutes: { prefix: string, epoch: number }[],
-  fromEpoch: number,
-  toEpoch: number,
-  timeout: number
-}
 
 export interface CcpSenderOpts {
   accountId: string
-  accountManager: AccountManager
+  accountService: AccountServiceInstance
   forwardingRoutingTable: ForwardingRoutingTable
   getOwnAddress: () => string
   getAccountRelation: (accountId: string) => Relation
@@ -38,7 +26,7 @@ const MINIMUM_UPDATE_INTERVAL = 150
 const MAX_EPOCHS_PER_UPDATE = 50
 
 export default class CcpSender {
-  private accountManager: AccountManager
+  private accountService: AccountServiceInstance
   private forwardingRoutingTable: ForwardingRoutingTable
   private log: ConnectorLogger
   private accountId: string
@@ -58,14 +46,14 @@ export default class CcpSender {
 
   constructor ({
     accountId,
-    accountManager,
+    accountService,
     forwardingRoutingTable,
     getOwnAddress,
     getAccountRelation,
     routeExpiry,
     routeBroadcastInterval
   }: CcpSenderOpts) {
-    this.accountManager = accountManager
+    this.accountService = accountService
     this.forwardingRoutingTable = forwardingRoutingTable
     this.log = createLogger(`ccp-sender[${accountId}]`)
     this.accountId = accountId
@@ -174,7 +162,7 @@ export default class CcpSender {
   private async sendSingleRouteUpdate () {
     this.lastUpdate = Date.now()
 
-    if (!this.accountManager.isConnected(this.accountId)) {
+    if (!this.accountService.isConnected()) {
       this.log.debug('cannot send routes, plugin not connected (yet).')
       return
     }
@@ -266,7 +254,7 @@ export default class CcpSender {
 
     try {
       await Promise.race([
-        this.accountManager.sendData(serializeCcpRouteUpdateRequest(routeUpdate), this.accountId),
+        this.accountService.sendData(serializeCcpRouteUpdateRequest(routeUpdate)),
         timerPromise
       ])
     } catch (err) {

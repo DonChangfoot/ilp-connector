@@ -19,7 +19,7 @@ import {
 import { DataHandler, MoneyHandler } from '../types/plugin'
 import MiddlewarePipeline from '../lib/middleware-pipeline'
 import {Errors} from 'ilp-packet'
-import AccountManager from "./account-manager"
+import {AccountServiceInstance} from "../types/account-service"
 const { codes, UnreachableError } = Errors
 
 interface VoidHandler {
@@ -111,10 +111,10 @@ export default class MiddlewareManager {
     })
   }
 
-  async setup (accountManager: AccountManager) {
+  async setup () {
     for (const accountId of this.accounts.getAccountIds()) {
 
-      await this.addPlugin(accountId, accountManager)
+      await this.addAccountService(accountId, this.accounts.getAccountService(accountId))
 
     }
   }
@@ -124,13 +124,20 @@ export default class MiddlewareManager {
    *
    * This should be called after the plugins are connected
    */
-  async startup () {
-    for (const handler of this.startupHandlers.values()) {
-      await handler(undefined)
+  async startup (accountId?: string) {
+    if(accountId) {
+      const handler = this.startupHandlers.get(accountId)
+
+      if(handler) await handler(undefined)
+    }
+    else{
+      for (const handler of this.startupHandlers.values()) {
+        await handler(undefined)
+      }
     }
   }
 
-  async addPlugin (accountId: string, accountManager: AccountManager) {
+  async addAccountService (accountId: string, accountService: AccountServiceInstance) {
     const pipelines: Pipelines = {
       startup: new MiddlewarePipeline<void, void>(),
       incomingData: new MiddlewarePipeline<Buffer, Buffer>(),
@@ -154,7 +161,7 @@ export default class MiddlewareManager {
     const submitData = async (data: Buffer) => {
       try {
 
-        return await accountManager.sendData(data, accountId);
+        return await accountService.sendData(data);
 
       } catch (e) {
         let err = e
@@ -194,13 +201,14 @@ export default class MiddlewareManager {
     const incomingMoneyHandler: MoneyHandler =
       this.createHandler(pipelines.incomingMoney, accountId, handleMoney)
 
-    accountManager.registerDataHandler(accountId, incomingDataHandler);
-    accountManager.registerMoneyHandler(accountId, incomingMoneyHandler);
+    accountService.registerDataHandler(incomingDataHandler);
+    accountService.registerMoneyHandler(incomingMoneyHandler);
   }
 
-  removePlugin (accountId: string, accountManager: AccountManager) {
-    accountManager.deregisterDataHandler(accountId)
-    accountManager.deregisterMoneyHandler(accountId)
+  removeAccountService (accountId: string) {
+    this.startupHandlers.delete(accountId)
+    this.outgoingDataHandlers.delete(accountId)
+    this.outgoingMoneyHandlers.delete(accountId)
   }
 
   async sendData (data: Buffer, accountId: string) {

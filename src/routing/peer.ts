@@ -1,23 +1,10 @@
 import Accounts from '../services/accounts'
 import Config from '../services/config'
 import ForwardingRoutingTable from '../services/forwarding-routing-table'
-import { BroadcastRoute } from '../types/routing'
 import reduct = require('reduct')
 import { Relation } from './relation'
 import CcpSender from './ccp-sender'
 import CcpReceiver from './ccp-receiver'
-import AccountManager from "../services/account-manager";
-
-export interface BroadcastRoutesParams {
-  accounts: Accounts,
-  newRoutes: BroadcastRoute[],
-  routingTableId: string,
-  holdDownTime: number,
-  withdrawnRoutes: { prefix: string, epoch: number }[],
-  fromEpoch: number,
-  toEpoch: number,
-  timeout: number
-}
 
 export interface PeerOpts {
   deps: reduct.Injector,
@@ -38,13 +25,12 @@ export default class Peer {
     this.accounts = deps(Accounts)
     this.accountId = accountId
 
-    const accountManager = deps(AccountManager)
     const forwardingRoutingTable = deps(ForwardingRoutingTable)
-
+    const accountService = this.accounts.getAccountService(this.accountId)
     if (sendRoutes) {
       this.ccpSender = new CcpSender({
         accountId,
-        accountManager: accountManager,
+        accountService,
         forwardingRoutingTable,
         getOwnAddress: () => this.accounts.getOwnAddress(),
         getAccountRelation: this.getAccountRelation,
@@ -54,7 +40,7 @@ export default class Peer {
     }
 
     if (receiveRoutes) {
-      this.ccpReceiver = new CcpReceiver({ accountId, accountManager: accountManager })
+      this.ccpReceiver = new CcpReceiver({ accountService, accountId })
     }
   }
 

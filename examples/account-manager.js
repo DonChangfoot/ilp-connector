@@ -5,9 +5,23 @@ function main () {
   const IlpConnector = require('../')
   this.connector = IlpConnector.createApp({
     ilpAddress: 'test.quickstart',
-    adminApiPort: 7769,
-    adminApi: true,
+    "account-manager": 'btp-grpc',
+    // "account-manager": 'in-process',
     accounts: {
+      "USER000001": {
+        "plugin": "ilp-plugin-btp",
+        "relation": "peer",
+        "assetCode": "USD",
+        "assetScale": 9,
+        "sendRoutes": false,
+        "receiveRoutes": false,
+        "options": {
+          "listener": {
+            "port": 7001,
+            "secret": "6cbe513aaf323a4c7a94639a9bd6ffbc"
+          }
+        }
+      }
     },
     backend: 'one-to-one',
     spread: 0,
