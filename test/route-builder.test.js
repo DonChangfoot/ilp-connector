@@ -57,15 +57,11 @@ describe('RouteBuilder', function () {
       }
     })
     appHelper.create(this)
-
+    await this.accounts.startup()
     const testAccounts = Object.keys(accountCredentials)
     for (let accountId of testAccounts) {
-      await this.accountManager.newAccountHandler(accountId, accountCredentials[accountId])
-      //have to do this manually as there no client that is actually going to connect to server for now.
-      this.accountManager.accountIsConnected.set(accountId, true)
-      this.accountManager.connectHandlers.get(accountId)()
 
-      this.accountManager.dataHandlers.get(accountId)(serializeCcpRouteUpdateRequest({
+      this.accounts.getAccountService(accountId).plugin._dataHandler(serializeCcpRouteUpdateRequest({
         speaker: accountId,
         routingTableId: '31812543-9935-4160-bdde-6e459bb37cfe',
         currentEpochIndex: 1,

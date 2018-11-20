@@ -74,16 +74,18 @@ export default class inProcess extends EventEmitter implements AccountManagerIns
 
   }
 
-  private add (accountId: string, accountInfo: any) {
+  private async add (accountId: string, accountInfo: any) {
 
     const AccountService: AccountServiceConstructor = loadModuleOfType('account_service', 'in-process')
-    this.accountServices.set(accountId, new AccountService(accountId, accountInfo, this.deps))
+    const accountService = new AccountService(accountId, accountInfo, this.deps)
+    this.accountServices.set(accountId, accountService)
 
-    if(this.newAccountHandler) this.newAccountHandler(accountId, this.accountServices.get(accountId) as AccountServiceInstance)
+    if(this.newAccountHandler) await this.newAccountHandler(accountId, accountService)
 
+    await accountService.connect()
   }
 
-  private remove (accountId: string) {
+  remove (accountId: string) {
 
     const accountService = this.getAccountService(accountId)
 
@@ -102,7 +104,7 @@ export default class inProcess extends EventEmitter implements AccountManagerIns
 
     const credentials = this.config.accounts
     for (let id of Object.keys(credentials)) {
-      this.add(id, credentials[id])
+      await this.add(id, credentials[id])
     }
 
   }

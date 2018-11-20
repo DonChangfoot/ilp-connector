@@ -86,7 +86,7 @@ export default function createApp (opts?: object, container?: reduct.Injector) {
   const newAccountHandler =  async  (id: string, accountService: AccountServiceInstance) => {
     await middlewareManager.addAccountService(id, accountService)
 
-    middlewareManager.startup(id)
+    await middlewareManager.startup(id)
 
     await accounts.loadIlpAddress()
 

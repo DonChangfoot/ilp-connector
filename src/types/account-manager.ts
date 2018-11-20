@@ -12,11 +12,11 @@ export interface AccountEntry {
 }
 
 export interface AccountManagerInstance {
-  registerNewAccountHandler(handler: (accountId: string, accountService: AccountServiceInstance) => Promise<void>),
-  deregisterNewAccountHandler(),
-  registerRemoveAccountHandler(handler: (accountId: string) =>void),
-  deregisterRemoveAccountHandler(),
+  registerNewAccountHandler(handler: (accountId: string, accountService: AccountServiceInstance) => Promise<void>): void,
+  deregisterNewAccountHandler(): void,
+  registerRemoveAccountHandler(handler: (accountId: string) => void): void,
+  deregisterRemoveAccountHandler(): void,
   getAccounts(): Map<string, AccountServiceInstance>
-  startup(),
-  shutdown()
+  startup(): void,
+  shutdown(): void
 }

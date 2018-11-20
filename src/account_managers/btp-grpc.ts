@@ -72,12 +72,12 @@ export default class BtpGrpcAccountManager extends EventEmitter implements Accou
 
   }
 
-  add (accountId: string, accountInfo: any, stream: BtpStream) {
+  async add (accountId: string, accountInfo: any, stream: BtpStream) {
 
     const AccountService: AccountServiceConstructor = loadModuleOfType('account_service', 'btp-grpc')
     this.accountServices.set(accountId, new AccountService(accountId, accountInfo, stream))
 
-    if(this.newAccountHandler) this.newAccountHandler(accountId, this.accountServices.get(accountId) as AccountServiceInstance)
+    if(this.newAccountHandler) await this.newAccountHandler(accountId, this.accountServices.get(accountId) as AccountServiceInstance)
 
   }
 

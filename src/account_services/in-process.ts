@@ -97,6 +97,10 @@ export default class InProcessAccountService extends EventEmitter implements Acc
     return await this.plugin.sendData(data)
   }
 
+  async sendMoney (amount: string) {
+    return await this.plugin.sendMoney(amount)
+  }
+
   registerDataHandler (dataHandler: DataHandler) {
     this.plugin.registerDataHandler(dataHandler)
   }

@@ -56,7 +56,7 @@ export default class Accounts extends EventEmitter {
     return this.address
   }
 
-  setOwnAddress (newAddress) {
+  setOwnAddress (newAddress: string) {
     log.trace('setting ilp address. oldAddress=%s newAddress=%s', this.address, newAddress)
     this.address = newAddress
   }
@@ -117,7 +117,7 @@ export default class Accounts extends EventEmitter {
     }
   }
 
-  getAccountService(accountId): AccountServiceInstance {
+  getAccountService(accountId: string): AccountServiceInstance {
     const accountService = this.accountManager.getAccounts().get(accountId)
     if(!accountService) {
       log.error('could not find account service for account id. accountId=%s', accountId)
@@ -142,7 +142,7 @@ export default class Accounts extends EventEmitter {
     this.accountManager.deregisterRemoveAccountHandler()
   }
 
-  startup () {
-    this.accountManager.startup()
+  async startup () {
+    await this.accountManager.startup()
   }
 }
